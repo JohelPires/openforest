@@ -99,7 +99,7 @@ interface ButtonProps {
 
 export function Button({ children, variant = "primary" }: ButtonProps) {
   return (
-    <button className={`btn btn-${variant}`}>
+    <button className={`rounded px-4 py-2 font-medium ${variant === "primary" ? "bg-green-600 text-white hover:bg-green-700" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}>
       {children}
     </button>
   );
@@ -188,7 +188,6 @@ type Status = "active" | "inactive" | "pending";
 // Ordem: React → Next → libs → internos
 import { useState } from "react";
 import Link from "next/link";
-import { z } from "zod";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 ```

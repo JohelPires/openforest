@@ -98,6 +98,8 @@ openforest/
 
 ## Commands
 
+> Execute todos os comandos abaixo no diretório `backend/`.
+
 ```bash
 # Subir tudo (Docker Compose)
 docker compose up

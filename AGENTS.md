@@ -1,8 +1,17 @@
-# OpenForest API
+# OpenForest
 
 ## Project Overview
 
-OpenForest é uma plataforma open source para monitoramento colaborativo de projetos de restauração ambiental. Permite acompanhar áreas restauradas, registrar coletas de campo, receber dados de sensores e gerar indicadores ambientais em tempo real.
+OpenForest é uma plataforma open source para monitoramento colaborativo de projetos de restauração ambiental. Este repositório é um monorepo contendo:
+
+- **`backend/`** — API FastAPI (veja seções abaixo)
+- **`frontend/`** — Interface Next.js (veja `AGENTS-FRONTEND.md`)
+- **`infrastructure/`** — Docker, CI/CD, deploy
+
+Documentos complementares:
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — Arquitetura do sistema
+- [`ROADMAP.md`](./ROADMAP.md) — Roadmap de milestones
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — Guia de contribuição
 
 ### User Personas
 
@@ -36,52 +45,64 @@ OpenForest é uma plataforma open source para monitoramento colaborativo de proj
 | Type check    | mypy                                |
 | Migrações     | Alembic (via SQLModel)              |
 
+> Para o stack do frontend, veja `AGENTS-FRONTEND.md`.
+
 ## Project Structure
 
 ```
-src/openforest/api/
-├── main.py                 # FastAPI app, lifespan, router includes
-├── config.py               # pydantic-settings (BaseSettings)
-├── models/                 # SQLModel table models (DB mapping)
-│   ├── __init__.py
-│   ├── base.py             # Base model com id, created_at, updated_at
-│   ├── project.py
-│   ├── area.py
-│   └── ...
-├── schemas/                # Pydantic request/response schemas
-│   ├── __init__.py
-│   ├── project.py
-│   ├── area.py
-│   └── ...
-├── routers/                # APIRouters por domínio
-│   ├── __init__.py
-│   ├── projects.py
-│   ├── areas.py
-│   └── ...
-├── dependencies/           # Depends reutilizáveis
-│   ├── __init__.py
-│   ├── auth.py             # CurrentUserDep, get_current_user
-│   └── database.py         # SessionDep, get_session
-├── services/               # Lógica de negócio
-│   ├── __init__.py
-│   ├── project_service.py
-│   └── ...
-├── infrastructure/         # Conexões externas (DB, cache, fila, storage)
-│   ├── __init__.py
-│   ├── database.py         # engine, session factory
-│   ├── redis.py
-│   └── storage.py          # Upload de fotos (S3/local)
-└── tests/
-    ├── __init__.py
-    ├── conftest.py          # Fixtures globais
-    ├── test_projects.py
-    └── ...
+openforest/
+├── backend/
+│   └── src/openforest/api/
+│       ├── main.py                 # FastAPI app, lifespan, router includes
+│       ├── config.py               # pydantic-settings (BaseSettings)
+│       ├── models/                 # SQLModel table models (DB mapping)
+│       │   ├── __init__.py
+│       │   ├── base.py             # Base model com id, created_at, updated_at
+│       │   ├── project.py
+│       │   ├── area.py
+│       │   └── ...
+│       ├── schemas/                # Pydantic request/response schemas
+│       │   ├── __init__.py
+│       │   ├── project.py
+│       │   ├── area.py
+│       │   └── ...
+│       ├── routers/                # APIRouters por domínio
+│       │   ├── __init__.py
+│       │   ├── projects.py
+│       │   ├── areas.py
+│       │   └── ...
+│       ├── dependencies/           # Depends reutilizáveis
+│       │   ├── __init__.py
+│       │   ├── auth.py             # CurrentUserDep, get_current_user
+│       │   └── database.py         # SessionDep, get_session
+│       ├── services/               # Lógica de negócio
+│       │   ├── __init__.py
+│       │   ├── project_service.py
+│       │   └── ...
+│       └── infrastructure/         # Conexões externas (DB, cache, fila, storage)
+│           ├── __init__.py
+│           ├── database.py         # engine, session factory
+│           ├── redis.py
+│           └── storage.py          # Upload de fotos (S3/local)
+├── frontend/                       → veja AGENTS-FRONTEND.md
+├── infrastructure/                 → Docker, CI/CD, deploy
+├── docs/
+│   └── superpowers/
+│       ├── plans/
+│       └── specs/
+├── README.md
+├── ARCHITECTURE.md
+├── ROADMAP.md
+└── CONTRIBUTING.md
 ```
 
 ## Commands
 
 ```bash
-# Servidor de desenvolvimento
+# Subir tudo (Docker Compose)
+docker compose up
+
+# Servidor de desenvolvimento (backend)
 fastapi dev
 
 # Servidor de produção
@@ -90,16 +111,16 @@ fastapi run
 # Testes
 pytest                          # Todos os testes
 pytest -x                       # Para no primeiro erro
-pytest --cov=src/openforest/api  # Com cobertura
+pytest --cov=backend/src/openforest/api  # Com cobertura
 pytest -k "test_projects"       # Filtrar por nome
 
 # Lint e formatação
-ruff check src/
-ruff format src/ --check
-ruff format src/
+ruff check backend/src/
+ruff format backend/src/ --check
+ruff format backend/src/
 
 # Type checking
-mypy src/
+mypy backend/src/
 
 # Dependências
 uv add <package>
@@ -295,7 +316,7 @@ def auth_headers(client):
 ## Environment & Config
 
 ```python
-# src/openforest/api/config.py
+# backend/src/openforest/api/config.py
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):

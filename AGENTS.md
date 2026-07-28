@@ -1,0 +1,327 @@
+# OpenForest API
+
+## Project Overview
+
+OpenForest é uma plataforma open source para monitoramento colaborativo de projetos de restauração ambiental. Permite acompanhar áreas restauradas, registrar coletas de campo, receber dados de sensores e gerar indicadores ambientais em tempo real.
+
+### User Personas
+
+- **ONG** — acompanha centenas de áreas restauradas
+- **Prefeitura** — métricas agregadas (ex: árvores plantadas)
+- **Pesquisador** — exporta dados brutos para análise
+- **Voluntário** — registra fotos e observações em campo
+- **Proprietário rural** — acompanha indicadores da própria área
+
+### MVP Scope
+
+- Cadastro de projetos
+- Cadastro de áreas
+- Upload de fotos
+- Coleta de dados em campo (espécies, mudas, GPS)
+- Sensores simulados (temperatura, umidade, qualidade do ar, chuva, luminosidade)
+- Dashboard em tempo real
+
+## Tech Stack
+
+| Camada        | Tecnologia                          |
+|---------------|-------------------------------------|
+| Framework     | FastAPI                             |
+| ORM           | SQLModel (sobre SQLAlchemy + Pydantic) |
+| Banco         | PostgreSQL                          |
+| Cache/Realtime| Redis                               |
+| Autenticação  | JWT (access + refresh token)        |
+| Testes        | pytest + httpx (TestClient)         |
+| Pacotes       | uv                                  |
+| Lint          | Ruff                                |
+| Type check    | mypy                                |
+| Migrações     | Alembic (via SQLModel)              |
+
+## Project Structure
+
+```
+src/openforest/api/
+├── main.py                 # FastAPI app, lifespan, router includes
+├── config.py               # pydantic-settings (BaseSettings)
+├── models/                 # SQLModel table models (DB mapping)
+│   ├── __init__.py
+│   ├── base.py             # Base model com id, created_at, updated_at
+│   ├── project.py
+│   ├── area.py
+│   └── ...
+├── schemas/                # Pydantic request/response schemas
+│   ├── __init__.py
+│   ├── project.py
+│   ├── area.py
+│   └── ...
+├── routers/                # APIRouters por domínio
+│   ├── __init__.py
+│   ├── projects.py
+│   ├── areas.py
+│   └── ...
+├── dependencies/           # Depends reutilizáveis
+│   ├── __init__.py
+│   ├── auth.py             # CurrentUserDep, get_current_user
+│   └── database.py         # SessionDep, get_session
+├── services/               # Lógica de negócio
+│   ├── __init__.py
+│   ├── project_service.py
+│   └── ...
+├── infrastructure/         # Conexões externas (DB, cache, fila, storage)
+│   ├── __init__.py
+│   ├── database.py         # engine, session factory
+│   ├── redis.py
+│   └── storage.py          # Upload de fotos (S3/local)
+└── tests/
+    ├── __init__.py
+    ├── conftest.py          # Fixtures globais
+    ├── test_projects.py
+    └── ...
+```
+
+## Commands
+
+```bash
+# Servidor de desenvolvimento
+fastapi dev
+
+# Servidor de produção
+fastapi run
+
+# Testes
+pytest                          # Todos os testes
+pytest -x                       # Para no primeiro erro
+pytest --cov=src/openforest/api  # Com cobertura
+pytest -k "test_projects"       # Filtrar por nome
+
+# Lint e formatação
+ruff check src/
+ruff format src/ --check
+ruff format src/
+
+# Type checking
+mypy src/
+
+# Dependências
+uv add <package>
+uv sync
+uv lock
+
+# Migrações (Alembic via SQLModel)
+alembic revision --autogenerate -m "descrição"
+alembic upgrade head
+```
+
+## Coding Conventions
+
+### Imports
+
+```python
+from collections.abc import Sequence
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session, select
+```
+
+### Annotated para parâmetros e dependências
+
+Sempre usar `Annotated` para `Path`, `Query`, `Header`, `Depends`:
+
+```python
+SessionDep = Annotated[Session, Depends(get_session)]
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+
+@router.get("/")
+def list_projects(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> Sequence[Project]:
+    ...
+```
+
+### Sync vs Async
+
+- **Sync (def)** por padrão, a menos que o endpoint dependa de lib async
+- **Async (async def)** apenas quando chamar libs async (redis, httpx, etc.)
+- Bloqueio em função async quebra performance — nunca misturar
+
+### Tipagem
+
+- Sempre declarar return type em endpoints e funções
+- `Sequence[T]` para listas (import de `collections.abc`)
+- `| None` (Python 3.10+) em vez de `Optional[T]`
+
+### Naming
+
+- **Modelos SQLModel:** singular (`Project`, `Area`)
+- **Tabelas:** snake_case plural (SQLModel infere)
+- **Schemas Pydantic:** `ProjectCreate`, `ProjectRead`, `ProjectUpdate`
+- **Routers:** prefixo plural, tags em português
+- **Variáveis:** snake_case
+
+### Erros
+
+```python
+raise HTTPException(
+    status_code=404,
+    detail=[{"msg": "Projeto não encontrado", "type": "not_found"}],
+)
+```
+
+Usar lista de objetos de erro com `type` padronizado.
+
+## Database Conventions
+
+### SQLModel
+
+- Models em `models/`, cada um em seu arquivo
+- Schemas de request/response em `schemas/` — separados dos models de DB
+- `table=True` em models de banco; sem `table` para schemas
+
+### Base Model
+
+```python
+from uuid import UUID, uuid4
+from datetime import datetime, timezone
+from sqlmodel import Field, SQLModel
+
+class Base(SQLModel):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
+    )
+```
+
+### Migrations
+
+- Alembic configurado via SQLModel
+- `alembic revision --autogenerate` após cada alteração em models
+- Revisões revisadas antes de aplicar
+
+## API Design
+
+### Routers
+
+- Um `APIRouter` por domínio, declarado com `prefix` e `tags` no router
+
+```python
+router = APIRouter(prefix="/projects", tags=["projetos"])
+```
+
+### Response Patterns
+
+- Preferir **return type** em vez de `response_model`
+- Usar `response_model` apenas quando o schema público difere do retorno interno
+- FastAPI serializa via Pydantic (lado Rust) — não usar ORJSONResponse
+
+### Error Format
+
+```json
+{
+  "detail": [
+    {"msg": "Projeto não encontrado", "type": "not_found"},
+    {"msg": "ID inválido", "type": "validation_error"}
+  ]
+}
+```
+
+### Versioning
+
+Versão via prefixo `/v1/` nos routers. Adicionar `/v2/` quando necessário sem quebrar `/v1/`.
+
+## Authentication
+
+### JWT Flow
+
+- **Access token:** 15 minutos
+- **Refresh token:** 7 dias
+- Algoritmo: HS256
+- Senhas: bcrypt (`passlib`)
+
+### Dependencies
+
+```python
+CurrentUserDep = Annotated[User, Depends(get_current_user)]
+```
+
+Get current user decodifica JWT do header `Authorization: Bearer <token>` e busca no DB.
+
+### Endpoints
+
+- `POST /v1/auth/register` — criar conta
+- `POST /v1/auth/login` — retorna access + refresh token
+- `POST /v1/auth/refresh` — novo access token via refresh token
+- `POST /v1/auth/logout` — invalidar refresh token
+
+## Testing
+
+### Setup
+
+pytest + httpx TestClient. Fixtures globais em `conftest.py`.
+
+### Fixtures
+
+```python
+@pytest.fixture
+def session():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        yield session
+
+@pytest.fixture
+def client(session):
+    app.dependency_overrides[get_session] = lambda: session
+    with TestClient(app) as c:
+        yield c
+
+@pytest.fixture
+def auth_headers(client):
+    response = client.post("/v1/auth/login", json={"email": "test@test.com", "password": "123"})
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+```
+
+### Structure
+
+- Testes organizados por domínio: `test_projects.py`, `test_areas.py`, etc.
+- Um arquivo por domínio ou grupo de endpoints relacionados
+- `conftest.py` por diretório se necessário (drills down)
+
+## Environment & Config
+
+```python
+# src/openforest/api/config.py
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    database_url: str = "postgresql://localhost:5432/openforest"
+    redis_url: str = "redis://localhost:6379/0"
+    secret_key: str
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 7
+    storage_backend: str = "local"   # "local" | "s3"
+    storage_path: str = "./uploads"
+
+    model_config = {"env_file": ".env"}
+
+settings = Settings()
+```
+
+### .env.example
+
+```
+DATABASE_URL=postgresql://localhost:5432/openforest
+REDIS_URL=redis://localhost:6379/0
+SECRET_KEY=change-me
+STORAGE_BACKEND=local
+STORAGE_PATH=./uploads
+```
+
+## Skills
+
+- `fastapi` — FastAPI conventions (installed locally)

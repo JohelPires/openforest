@@ -1,5 +1,3 @@
-from marshal import version
-
 from fastapi import FastAPI
 
 app = FastAPI(title="OpenForest API", version="0.1.0")

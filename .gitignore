@@ -1,0 +1,61 @@
+# ── Python / Backend ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+*.egg
+.uv/
+uv.lock
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ── Node.js / Frontend ────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+.next_export/
+.cache/
+next-env.d.ts
+*.tsbuildinfo
+
+# ── Environment Files ─────────────────────────────────────────
+backend/.env
+frontend/.env.local
+
+# ── Project / Docs ────────────────────────────────────────────
+TODO.md
+
+# ── IDE / Editor ──────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Infrastructure / Docker ──────────────────────────────────
+data/
+pgdata/
+docker-compose.override.yml
+*.log
+
+# ── Uploads / Storage ─────────────────────────────────────────
+uploads/
+storage/
+
+# ── OS Files ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

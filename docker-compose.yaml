@@ -7,7 +7,7 @@ services:
       container_name: openforest-backend
 
       volumes:
-         - ./backend:/app
+         - ./backend/src:/app/src
 
       ports:
          - '${BACKEND_PORT}:8000'

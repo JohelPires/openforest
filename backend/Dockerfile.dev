@@ -4,7 +4,9 @@ RUN pip install uv --quiet
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    UV_SYSTEM_PYTHON=1
+    PYTHONPATH="/app/src" \
+    UV_PROJECT_ENVIRONMENT="/app/.venv" \
+    PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
@@ -13,4 +15,4 @@ RUN uv sync --frozen
 
 EXPOSE 8000
 
-CMD ["fastapi", "dev", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "openforest.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,0 +1,6 @@
+fastapi[standard]>=0.115.0
+sqlmodel>=0.0.22
+
+[dev]
+pytest>=8.0
+httpx>=0.27

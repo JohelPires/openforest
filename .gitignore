@@ -30,6 +30,7 @@ next-env.d.ts
 # ── Environment Files ─────────────────────────────────────────
 backend/.env
 frontend/.env.local
+.env
 
 # ── Project / Docs ────────────────────────────────────────────
 TODO.md

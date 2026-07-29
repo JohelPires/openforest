@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlmodel import SQLModel
 
 from openforest.api.config import settings
+from openforest.api.infrastructure.metadata import target_metadata
 
 config = context.config
 
@@ -11,8 +11,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 config.set_main_option("sqlalchemy.url", settings.database_url)
-
-target_metadata = SQLModel.metadata
 
 
 def run_migrations_offline() -> None:

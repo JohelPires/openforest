@@ -1,11 +1,12 @@
 from urllib.parse import urlparse, urlunparse
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
 from openforest.api.config import settings
+from openforest.api.models.organization import Organization
 
 parsed = urlparse(settings.database_url)
 test_db_url = urlunparse(parsed._replace(path="/openforest_test"))
@@ -42,6 +43,14 @@ def session():
 
 
 @pytest.fixture
+def organization(session):
+    org = Organization(name="ONG Teste", slug="ong-teste")
+    session.add(org)
+    session.commit()
+    return org
+
+
+@pytest.fixture
 def client(session):
     from openforest.api.infrastructure.database import get_session
     from openforest.api.main import app
@@ -52,7 +61,7 @@ def client(session):
     app.dependency_overrides.clear()
 
 
-def test_create_project(client: TestClient) -> None:
+def test_create_project(client: TestClient, organization: Organization) -> None:
     org_id = str(uuid4())
     response = client.post(
         "/api/v1/projects",
@@ -61,7 +70,7 @@ def test_create_project(client: TestClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Reflorestamento Mata Atlântica"
-    assert data["organization_id"] == org_id
+    assert data["organization_id"] == str(organization.id)
     assert "id" in data
 
 
@@ -71,30 +80,28 @@ def test_list_projects_empty(client: TestClient) -> None:
     assert response.json() == []
 
 
-def test_get_project_not_found(client: TestClient) -> None:
+def test_get_project_not_found(client: TestClient, organization: Organization) -> None:
     response = client.get(f"/api/v1/projects/{uuid4()}")
     assert response.status_code == 404
 
 
-def test_create_and_list(client: TestClient) -> None:
-    org_id = str(uuid4())
+def test_create_and_list(client: TestClient, organization: Organization) -> None:
     client.post(
         "/api/v1/projects",
-        json={"name": "Projeto A", "organization_id": org_id},
+        json={"name": "Projeto A", "organization_id": str(organization.id)},
     )
     client.post(
         "/api/v1/projects",
-        json={"name": "Projeto B", "organization_id": org_id},
+        json={"name": "Projeto B", "organization_id": str(organization.id)},
     )
     response = client.get("/api/v1/projects")
     assert len(response.json()) == 2
 
 
-def test_update_project(client: TestClient) -> None:
-    org_id = str(uuid4())
+def test_update_project(client: TestClient, organization: Organization) -> None:
     create_resp = client.post(
         "/api/v1/projects",
-        json={"name": "Nome Original", "organization_id": org_id},
+        json={"name": "Nome Original", "organization_id": str(organization.id)},
     )
     project_id = create_resp.json()["id"]
 
@@ -106,7 +113,7 @@ def test_update_project(client: TestClient) -> None:
     assert response.json()["name"] == "Nome Atualizado"
 
 
-def test_update_project_not_found(client: TestClient) -> None:
+def test_update_project_not_found(client: TestClient, organization: Organization) -> None:
     response = client.patch(
         f"/api/v1/projects/{uuid4()}",
         json={"name": "Qualquer"},
@@ -114,11 +121,10 @@ def test_update_project_not_found(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_delete_project(client: TestClient) -> None:
-    org_id = str(uuid4())
+def test_delete_project(client: TestClient, organization: Organization) -> None:
     create_resp = client.post(
         "/api/v1/projects",
-        json={"name": "Projeto para deletar", "organization_id": org_id},
+        json={"name": "Projeto para deletar", "organization_id": str(organization.id)},
     )
     project_id = create_resp.json()["id"]
 
@@ -129,6 +135,6 @@ def test_delete_project(client: TestClient) -> None:
     assert get_response.status_code == 404
 
 
-def test_delete_project_not_found(client: TestClient) -> None:
+def test_delete_project_not_found(client: TestClient, organization: Organization) -> None:
     response = client.delete(f"/api/v1/projects/{uuid4()}")
     assert response.status_code == 404

@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 
 from openforest.api.infrastructure.database import SessionDep
+from openforest.api.models.organization import Organization
 from openforest.api.schemas.organization import (
     OrganizationCreate,
     OrganizationRead,
@@ -20,17 +21,17 @@ router = APIRouter(prefix="/organizations", tags=["organizações"])
 
 
 @router.post("/", response_model=OrganizationRead)
-def create_organization_route(session: SessionDep, data: OrganizationCreate) -> OrganizationRead:
+def create_organization_route(session: SessionDep, data: OrganizationCreate) -> Organization:
     return create_organization(session, data)
 
 
 @router.get("/", response_model=list[OrganizationRead])
-def list_organizations_route(session: SessionDep) -> list[OrganizationRead]:
+def list_organizations_route(session: SessionDep) -> list[Organization]:
     return list_organizations(session)
 
 
 @router.get("/{organization_id}", response_model=OrganizationRead)
-def get_organization_route(session: SessionDep, organization_id: UUID) -> OrganizationRead:
+def get_organization_route(session: SessionDep, organization_id: UUID) -> Organization | None:
     organization = get_organization(session, organization_id)
     if not organization:
         raise HTTPException(
@@ -45,7 +46,7 @@ def update_organization_route(
     session: SessionDep,
     organization_id: UUID,
     data: OrganizationUpdate,
-) -> OrganizationRead:
+) -> Organization | None:
     organization = update_organization(session, organization_id, data)
     if not organization:
         raise HTTPException(

@@ -39,7 +39,9 @@ def get_project_route(session: SessionDep, project_id: UUID) -> Project | None:
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
-def update_project_route(session: SessionDep, project_id: UUID, data: ProjectUpdate) -> Project | None:
+def update_project_route(
+    session: SessionDep, project_id: UUID, data: ProjectUpdate
+) -> Project | None:
     project = update_project(session, project_id, data)
     if not project:
         raise HTTPException(

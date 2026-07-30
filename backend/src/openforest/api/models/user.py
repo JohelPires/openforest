@@ -2,6 +2,7 @@ from sqlmodel import Field
 
 from openforest.api.models.base import Base
 
+
 class User(Base, table=True):
     __tablename__ = "user"
 

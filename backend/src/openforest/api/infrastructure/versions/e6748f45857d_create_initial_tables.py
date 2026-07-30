@@ -1,16 +1,15 @@
 """create initial tables
 
 Revision ID: e6748f45857d
-Revises: 
+Revises:
 Create Date: 2026-07-29 15:14:30.278047
 
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 import sqlmodel
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'e6748f45857d'

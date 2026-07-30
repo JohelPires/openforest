@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlmodel import Field, Index, JSON, Text
+from sqlmodel import JSON, Field, Index, Text
 
 from openforest.api.models.base import Base
 
@@ -18,4 +18,4 @@ class Monitoring(Base, table=True):
     notes: str | None = Field(default=None, sa_type=Text)
     seedling_count: int | None = Field(default=None)
     avg_height: float | None = Field(default=None)
-    species_data: dict | None = Field(default=None, sa_type=JSON)
+    species_data: dict[str, object] | None = Field(default=None, sa_type=JSON)

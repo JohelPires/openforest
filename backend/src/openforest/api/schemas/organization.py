@@ -6,7 +6,7 @@ from sqlmodel import SQLModel
 
 class OrganizationCreate(SQLModel):
     name: str
-    slug: str
+    slug: str | None = None
     description: str | None = None
 
 

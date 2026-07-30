@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -5,6 +7,25 @@ from sqlmodel import Session, select
 
 from openforest.api.models.organization import Organization
 from openforest.api.schemas.organization import OrganizationCreate, OrganizationUpdate
+
+
+def _slugify(name: str) -> str:
+    slug = name.lower().strip()
+    slug = unicodedata.normalize("NFKD", slug)
+    slug = slug.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[-\s]+", "-", slug)
+    return slug.strip("-")
+
+
+def _generate_unique_slug(session: Session, name: str) -> str:
+    slug = _slugify(name)
+    candidate = slug
+    counter = 1
+    while session.exec(select(Organization).where(Organization.slug == candidate)).first():
+        candidate = f"{slug}-{counter}"
+        counter += 1
+    return candidate
 
 
 def _check_slug_unique(session: Session, slug: str, exclude_id: UUID | None = None) -> None:
@@ -22,8 +43,13 @@ def _check_slug_unique(session: Session, slug: str, exclude_id: UUID | None = No
 
 
 def create_organization(session: Session, data: OrganizationCreate) -> Organization:
-    _check_slug_unique(session, data.slug)
-    organization = Organization(**data.model_dump())
+    if data.slug:
+        _check_slug_unique(session, data.slug.strip())
+        slug = data.slug.strip()
+    else:
+        slug = _generate_unique_slug(session, data.name)
+
+    organization = Organization(**data.model_dump(exclude={"slug"}), slug=slug)
     session.add(organization)
     session.commit()
     session.refresh(organization)
@@ -46,8 +72,14 @@ def update_organization(
         return None
 
     update_data = data.model_dump(exclude_unset=True)
-    if "slug" in update_data and update_data["slug"] != organization.slug:
-        _check_slug_unique(session, update_data["slug"], exclude_id=organization.id)
+
+    if "slug" in update_data:
+        slug = update_data["slug"]
+        if slug and slug.strip() != organization.slug:
+            _check_slug_unique(session, slug.strip(), exclude_id=organization.id)
+            update_data["slug"] = slug.strip()
+        elif not slug or not slug.strip():
+            update_data["slug"] = _generate_unique_slug(session, organization.name)
 
     for field, value in update_data.items():
         setattr(organization, field, value)

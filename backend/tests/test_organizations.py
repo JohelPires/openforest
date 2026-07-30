@@ -167,7 +167,47 @@ def test_delete_organization_not_found(client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_create_duplicate_slug(client: TestClient) -> None:
+def test_create_organization_auto_slug(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/organizations",
+        json={"name": "ONG Mata Atlântica"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["slug"] == "ong-mata-atlantica"
+
+
+def test_create_organization_auto_slug_avoids_conflict(client: TestClient) -> None:
+    client.post(
+        "/api/v1/organizations",
+        json={"name": "ONG Teste", "slug": "ong-teste"},
+    )
+    response = client.post(
+        "/api/v1/organizations",
+        json={"name": "ONG Teste"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["slug"] == "ong-teste-1"
+
+
+def test_update_organization_auto_slug(client: TestClient) -> None:
+    create_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Nome Original", "slug": "slug-original"},
+    )
+    org_id = create_resp.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{org_id}",
+        json={"slug": None},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["slug"] == "nome-original"
+
+
+def test_create_duplicate_slug_returns_error(client: TestClient) -> None:
     client.post(
         "/api/v1/organizations",
         json={"name": "Primeira", "slug": "slug-repetido"},

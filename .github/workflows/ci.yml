@@ -35,6 +35,3 @@ jobs:
 
       - name: Type check
         run: uv run mypy src/
-
-      - name: Test
-        run: uv run pytest

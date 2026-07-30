@@ -3,7 +3,7 @@
 > **An open-source platform for monitoring environmental restoration projects, field data collection, and ecological monitoring.**
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Python](https://img.shields.io/badge/Python-3.13+-blue)
+![Python](https://img.shields.io/badge/Python-3.12+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![Status](https://img.shields.io/badge/status-early_development-orange)
@@ -126,7 +126,7 @@ The architecture is intentionally designed to evolve gradually into distributed 
 
 - FastAPI
 - Python
-- SQLAlchemy
+- SQLModel
 - Alembic
 - Pydantic
 
@@ -161,6 +161,7 @@ The architecture is intentionally designed to evolve gradually into distributed 
 - Docker
 - Docker Compose
 - GitHub Actions
+- uv
 
 ---
 
@@ -168,19 +169,26 @@ The architecture is intentionally designed to evolve gradually into distributed 
 
 ```
 openforest/
-
-backend/
-frontend/
-infrastructure/
-docs/
-adr/
-.github/
-
-README.md
-ROADMAP.md
-CONTRIBUTING.md
-ARCHITECTURE.md
-LICENSE
+├── backend/
+│   ├── src/openforest/api/
+│   │   ├── main.py                  # FastAPI app
+│   │   ├── config.py                # pydantic-settings
+│   │   ├── models/                  # SQLModel (area, monitoring, photo, project, user, …)
+│   │   ├── infrastructure/          # DB engine, Alembic env
+│   │   └── …
+│   ├── tests/
+│   ├── alembic.ini
+│   ├── pyproject.toml
+│   └── Dockerfile / Dockerfile.dev
+├── frontend/                        # Next.js (em desenvolvimento)
+├── infrastructure/                  # Docker, CI/CD, deploy
+├── docs/
+├── .github/
+├── README.md
+├── ARCHITECTURE.md
+├── ROADMAP.md
+├── CONTRIBUTING.md
+└── AGENTS.md
 ```
 
 ---
@@ -284,36 +292,58 @@ This allows contributors to understand not only **what** was built, but **why**.
 
 ### Requirements
 
-- Python 3.13+
-- Docker
-- Docker Compose
-- Node.js
-- pnpm
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+- Docker + Docker Compose
+- Node.js 20+
 
 ### Clone
 
 ```bash
-git clone https://github.com/<your-user>/openforest.git
-
+git clone https://github.com/seu-usuario/openforest.git
 cd openforest
 ```
 
-### Start
+### Configure Environment
+
+Copie o arquivo de exemplo e ajuste as variáveis:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+> **Atenção:** O arquivo `.env` contém credenciais e não deve ser versionado.
+> O `.gitignore` já o exclui — verifique antes de commitar.
+
+### Opção 1 — Docker Compose (recomendado)
+
+Sobe todos os serviços (PostgreSQL, Redis e backend):
 
 ```bash
 docker compose up
 ```
 
-API:
+- API: <http://localhost:8000>
+- Swagger: <http://localhost:8000/docs>
 
-```
-http://localhost:8000
+### Opção 2 — Local (backend apenas)
+
+Certifique-se de ter PostgreSQL e Redis rodando (ex: via `docker compose up postgres redis`).
+
+```bash
+cd backend
+uv sync                       # instala dependências
+alembic upgrade head           # executa migrations
+fastapi dev                    # servidor de desenvolvimento
 ```
 
-Swagger:
+### Testes
 
-```
-http://localhost:8000/docs
+```bash
+cd backend
+pytest                         # todos os testes
+pytest -x                      # para no primeiro erro
+pytest --cov=src/openforest/api  # com cobertura
 ```
 
 ---

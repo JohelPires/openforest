@@ -1,12 +1,25 @@
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from openforest.api.models.organization import Organization
 from openforest.api.models.project import Project
 from openforest.api.schemas.project import ProjectCreate, ProjectUpdate
 
 
 def create_project(session: Session, data: ProjectCreate) -> Project:
+    organization = session.get(Organization, data.organization_id)
+    if not organization:
+        raise HTTPException(
+            status_code=422,
+            detail=[
+                {
+                    "msg": f"Organização com ID '{data.organization_id}' não encontrada",
+                    "type": "not_found",
+                }
+            ],
+        )
     project = Project(**data.model_dump())
     session.add(project)
     session.commit()

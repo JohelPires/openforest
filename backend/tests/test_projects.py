@@ -137,3 +137,13 @@ def test_delete_project(client: TestClient, organization: Organization) -> None:
 def test_delete_project_not_found(client: TestClient, organization: Organization) -> None:
     response = client.delete(f"/api/v1/projects/{uuid4()}")
     assert response.status_code == 404
+
+
+def test_create_project_invalid_organization(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/projects",
+        json={"name": "Projeto Inválido", "organization_id": str(uuid4())},
+    )
+    assert response.status_code == 422
+    data = response.json()
+    assert any("não encontrada" in item["msg"] for item in data["detail"])

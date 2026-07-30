@@ -62,10 +62,9 @@ def client(session):
 
 
 def test_create_project(client: TestClient, organization: Organization) -> None:
-    org_id = str(uuid4())
     response = client.post(
         "/api/v1/projects",
-        json={"name": "Reflorestamento Mata Atlântica", "organization_id": org_id},
+        json={"name": "Reflorestamento Mata Atlântica", "organization_id": str(organization.id)},
     )
     assert response.status_code == 200
     data = response.json()

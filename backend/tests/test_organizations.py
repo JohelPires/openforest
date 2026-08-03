@@ -123,7 +123,7 @@ def test_create_organization_with_description(client: TestClient, auth_headers: 
 def test_list_organizations_empty(client: TestClient, auth_headers: dict) -> None:
     response = client.get("/api/v1/organizations", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "offset": 0, "limit": 20}
 
 
 def test_create_and_list(client: TestClient, auth_headers: dict) -> None:
@@ -138,7 +138,45 @@ def test_create_and_list(client: TestClient, auth_headers: dict) -> None:
         headers=auth_headers,
     )
     response = client.get("/api/v1/organizations", headers=auth_headers)
-    assert len(response.json()) == 2
+    data = response.json()
+    assert len(data["items"]) == 2
+    assert data["total"] == 2
+
+
+def test_list_organizations_pagination(client: TestClient, auth_headers: dict) -> None:
+    for name, slug in [("Org A", "org-a"), ("Org B", "org-b"), ("Org C", "org-c")]:
+        client.post(
+            "/api/v1/organizations",
+            json={"name": name, "slug": slug},
+            headers=auth_headers,
+        )
+
+    page_one = client.get("/api/v1/organizations?offset=0&limit=2", headers=auth_headers).json()
+    assert len(page_one["items"]) == 2
+    assert page_one["total"] == 3
+    assert page_one["offset"] == 0
+    assert page_one["limit"] == 2
+
+    page_two = client.get("/api/v1/organizations?offset=2&limit=2", headers=auth_headers).json()
+    assert len(page_two["items"]) == 1
+    assert page_two["total"] == 3
+    assert page_two["offset"] == 2
+
+    past_end = client.get("/api/v1/organizations?offset=10&limit=2", headers=auth_headers).json()
+    assert past_end["items"] == []
+    assert past_end["total"] == 3
+
+
+def test_list_organizations_invalid_pagination(client: TestClient, auth_headers: dict) -> None:
+    assert (
+        client.get("/api/v1/organizations?limit=0", headers=auth_headers).status_code == 422
+    )
+    assert (
+        client.get("/api/v1/organizations?limit=101", headers=auth_headers).status_code == 422
+    )
+    assert (
+        client.get("/api/v1/organizations?offset=-1", headers=auth_headers).status_code == 422
+    )
 
 
 def test_get_organization(client: TestClient, auth_headers: dict) -> None:

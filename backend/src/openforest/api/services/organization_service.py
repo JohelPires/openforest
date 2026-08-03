@@ -3,7 +3,7 @@ import unicodedata
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from openforest.api.models.organization import Organization
 from openforest.api.schemas.organization import OrganizationCreate, OrganizationUpdate
@@ -60,8 +60,12 @@ def get_organization(session: Session, organization_id: UUID) -> Organization | 
     return session.get(Organization, organization_id)
 
 
-def list_organizations(session: Session) -> list[Organization]:
-    return list(session.exec(select(Organization)).all())
+def list_organizations(session: Session, offset: int, limit: int) -> tuple[list[Organization], int]:
+    total = session.exec(select(func.count()).select_from(Organization)).one()
+    items = session.exec(
+        select(Organization).order_by("created_at", "id").offset(offset).limit(limit)
+    ).all()
+    return list(items), total
 
 
 def update_organization(

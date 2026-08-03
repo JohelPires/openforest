@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from openforest.api.models.organization import Organization
 from openforest.api.models.project import Project
@@ -31,8 +31,12 @@ def get_project(session: Session, project_id: UUID) -> Project | None:
     return session.get(Project, project_id)
 
 
-def list_projects(session: Session) -> list[Project]:
-    return list(session.exec(select(Project)).all())
+def list_projects(session: Session, offset: int, limit: int) -> tuple[list[Project], int]:
+    total = session.exec(select(func.count()).select_from(Project)).one()
+    items = session.exec(
+        select(Project).order_by("created_at", "id").offset(offset).limit(limit)
+    ).all()
+    return list(items), total
 
 
 def update_project(session: Session, project_id: UUID, data: ProjectUpdate) -> Project | None:

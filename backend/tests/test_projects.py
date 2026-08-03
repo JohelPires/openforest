@@ -113,7 +113,7 @@ def test_create_project(
 def test_list_projects_empty(client: TestClient, auth_headers: dict) -> None:
     response = client.get("/api/v1/projects", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "offset": 0, "limit": 20}
 
 
 def test_get_project_not_found(
@@ -140,7 +140,44 @@ def test_create_and_list(
         headers=auth_headers,
     )
     response = client.get("/api/v1/projects", headers=auth_headers)
-    assert len(response.json()) == 2
+    data = response.json()
+    assert len(data["items"]) == 2
+    assert data["total"] == 2
+
+
+def test_list_projects_pagination(
+    client: TestClient,
+    organization: Organization,
+    auth_headers: dict,
+    admin_membership: UserOrganization,
+) -> None:
+    for name in ["Projeto A", "Projeto B", "Projeto C"]:
+        client.post(
+            "/api/v1/projects",
+            json={"name": name, "organization_id": str(organization.id)},
+            headers=auth_headers,
+        )
+
+    page_one = client.get("/api/v1/projects?offset=0&limit=2", headers=auth_headers).json()
+    assert len(page_one["items"]) == 2
+    assert page_one["total"] == 3
+    assert page_one["offset"] == 0
+    assert page_one["limit"] == 2
+
+    page_two = client.get("/api/v1/projects?offset=2&limit=2", headers=auth_headers).json()
+    assert len(page_two["items"]) == 1
+    assert page_two["total"] == 3
+    assert page_two["offset"] == 2
+
+    past_end = client.get("/api/v1/projects?offset=10&limit=2", headers=auth_headers).json()
+    assert past_end["items"] == []
+    assert past_end["total"] == 3
+
+
+def test_list_projects_invalid_pagination(client: TestClient, auth_headers: dict) -> None:
+    assert client.get("/api/v1/projects?limit=0", headers=auth_headers).status_code == 422
+    assert client.get("/api/v1/projects?limit=101", headers=auth_headers).status_code == 422
+    assert client.get("/api/v1/projects?offset=-1", headers=auth_headers).status_code == 422
 
 
 def test_update_project(

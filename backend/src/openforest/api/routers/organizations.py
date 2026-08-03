@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 
 from openforest.api.dependencies.auth import CurrentUserDep, require_role
+from openforest.api.dependencies.pagination import PaginationDep
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.models.organization import Organization
 from openforest.api.models.user_organization import UserOrganizationRole
@@ -11,6 +12,7 @@ from openforest.api.schemas.organization import (
     OrganizationRead,
     OrganizationUpdate,
 )
+from openforest.api.schemas.pagination import Paginated
 from openforest.api.services.organization_service import (
     create_organization,
     delete_organization,
@@ -29,11 +31,12 @@ def create_organization_route(
     return create_organization(session, data)
 
 
-@router.get("/", response_model=list[OrganizationRead])
+@router.get("/", response_model=Paginated[OrganizationRead])
 def list_organizations_route(
-    session: SessionDep, current_user: CurrentUserDep
-) -> list[Organization]:
-    return list_organizations(session)
+    session: SessionDep, current_user: CurrentUserDep, pagination: PaginationDep
+) -> Paginated[Organization]:
+    items, total = list_organizations(session, pagination.offset, pagination.limit)
+    return Paginated(items=items, total=total, offset=pagination.offset, limit=pagination.limit)
 
 
 @router.get("/{organization_id}", response_model=OrganizationRead)

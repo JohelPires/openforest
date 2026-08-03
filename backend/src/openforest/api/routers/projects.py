@@ -4,11 +4,13 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import Session
 
 from openforest.api.dependencies.auth import CurrentUserDep
+from openforest.api.dependencies.pagination import PaginationDep
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.models.organization import Organization
 from openforest.api.models.project import Project
 from openforest.api.models.user import User
 from openforest.api.models.user_organization import UserOrganization, UserOrganizationRole
+from openforest.api.schemas.pagination import Paginated
 from openforest.api.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from openforest.api.services.project_service import (
     create_project,
@@ -47,9 +49,12 @@ def create_project_route(
     return project
 
 
-@router.get("/", response_model=list[ProjectRead])
-def list_projects_route(session: SessionDep, current_user: CurrentUserDep) -> list[Project]:
-    return list_projects(session)
+@router.get("/", response_model=Paginated[ProjectRead])
+def list_projects_route(
+    session: SessionDep, current_user: CurrentUserDep, pagination: PaginationDep
+) -> Paginated[Project]:
+    items, total = list_projects(session, pagination.offset, pagination.limit)
+    return Paginated(items=items, total=total, offset=pagination.offset, limit=pagination.limit)
 
 
 @router.get("/{project_id}", response_model=ProjectRead)

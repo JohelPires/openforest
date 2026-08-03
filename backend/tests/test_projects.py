@@ -180,6 +180,70 @@ def test_list_projects_invalid_pagination(client: TestClient, auth_headers: dict
     assert client.get("/api/v1/projects?offset=-1", headers=auth_headers).status_code == 422
 
 
+def test_list_projects_filter_by_organization(
+    client: TestClient,
+    session: Session,
+    organization: Organization,
+    admin_membership: UserOrganization,
+    auth_headers: dict,
+) -> None:
+    other_org = Organization(name="Outra ONG", slug="outra-ong")
+    session.add(other_org)
+    session.commit()
+
+    client.post(
+        "/api/v1/projects",
+        json={"name": "Projeto A", "organization_id": str(organization.id)},
+        headers=auth_headers,
+    )
+    client.post(
+        "/api/v1/projects",
+        json={"name": "Projeto B", "organization_id": str(organization.id)},
+        headers=auth_headers,
+    )
+    client.post(
+        "/api/v1/projects",
+        json={"name": "Projeto C", "organization_id": str(other_org.id)},
+        headers=auth_headers,
+    )
+
+    response = client.get(
+        f"/api/v1/projects?organization_id={organization.id}", headers=auth_headers
+    )
+    data = response.json()
+    assert response.status_code == 200
+    assert data["total"] == 2
+    assert {item["name"] for item in data["items"]} == {"Projeto A", "Projeto B"}
+
+
+def test_list_projects_filter_by_organization_empty(
+    client: TestClient,
+    organization: Organization,
+    auth_headers: dict,
+) -> None:
+    response = client.get(
+        f"/api/v1/projects?organization_id={organization.id}", headers=auth_headers
+    )
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "total": 0, "offset": 0, "limit": 20}
+
+
+def test_list_projects_filter_by_organization_not_found(
+    client: TestClient, auth_headers: dict
+) -> None:
+    response = client.get(f"/api/v1/projects?organization_id={uuid4()}", headers=auth_headers)
+    assert response.status_code == 422
+    data = response.json()
+    assert any("não encontrada" in item["msg"] for item in data["detail"])
+
+
+def test_list_projects_filter_invalid_uuid(client: TestClient, auth_headers: dict) -> None:
+    assert (
+        client.get("/api/v1/projects?organization_id=nao-e-uuid", headers=auth_headers).status_code
+        == 422
+    )
+
+
 def test_update_project(
     client: TestClient,
     organization: Organization,

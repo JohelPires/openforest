@@ -1,6 +1,7 @@
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import Session
 
 from openforest.api.dependencies.auth import CurrentUserDep
@@ -51,9 +52,24 @@ def create_project_route(
 
 @router.get("/", response_model=Paginated[ProjectRead])
 def list_projects_route(
-    session: SessionDep, current_user: CurrentUserDep, pagination: PaginationDep
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    pagination: PaginationDep,
+    organization_id: Annotated[UUID | None, Query()] = None,
 ) -> Paginated[Project]:
-    items, total = list_projects(session, pagination.offset, pagination.limit)
+    if organization_id:
+        organization = session.get(Organization, organization_id)
+        if not organization:
+            raise HTTPException(
+                status_code=422,
+                detail=[
+                    {
+                        "msg": f"Organização com ID '{organization_id}' não encontrada",
+                        "type": "not_found",
+                    }
+                ],
+            )
+    items, total = list_projects(session, pagination.offset, pagination.limit, organization_id)
     return Paginated(items=items, total=total, offset=pagination.offset, limit=pagination.limit)
 
 

@@ -32,14 +32,10 @@ def get_area(session: Session, area_id: UUID) -> Area | None:
 
 
 def list_areas(session: Session, project_id: UUID) -> list[Area]:
-    return list(
-        session.exec(select(Area).where(Area.project_id == project_id)).all()
-    )
+    return list(session.exec(select(Area).where(Area.project_id == project_id)).all())
 
 
-def update_area(
-    session: Session, area_id: UUID, data: AreaUpdate
-) -> Area | None:
+def update_area(session: Session, area_id: UUID, data: AreaUpdate) -> Area | None:
     area = session.get(Area, area_id)
     if not area:
         return None

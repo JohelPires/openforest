@@ -9,9 +9,7 @@ from openforest.api.models.base import Base
 class Monitoring(Base, table=True):
     __tablename__ = "monitoring"
 
-    __table_args__ = (
-        Index("ix_monitoring_area_visit", "area_id", "visit_date"),
-    )
+    __table_args__ = (Index("ix_monitoring_area_visit", "area_id", "visit_date"),)
 
     area_id: UUID = Field(nullable=False, foreign_key="area.id", ondelete="CASCADE")
     visit_date: date = Field(nullable=False)

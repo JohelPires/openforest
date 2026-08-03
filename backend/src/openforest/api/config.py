@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    algorithm: str = "HS256"
     storage_backend: str = "local"
     storage_path: str = "./uploads"
 

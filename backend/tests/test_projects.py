@@ -7,6 +7,9 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from openforest.api.config import settings
 from openforest.api.models.organization import Organization
+from openforest.api.models.user import User
+from openforest.api.models.user_organization import UserOrganization, UserOrganizationRole
+from openforest.api.services.auth_service import hash_password
 
 parsed = urlparse(settings.database_url)
 test_db_url = urlunparse(parsed._replace(path="/openforest_test"))
@@ -51,6 +54,24 @@ def organization(session):
 
 
 @pytest.fixture
+def user(session):
+    u = User(name="Test User", email="test@test.com", password_hash=hash_password("secret123"))
+    session.add(u)
+    session.commit()
+    return u
+
+
+@pytest.fixture
+def admin_membership(session, user, organization):
+    membership = UserOrganization(
+        user_id=user.id, organization_id=organization.id, role=UserOrganizationRole.admin
+    )
+    session.add(membership)
+    session.commit()
+    return membership
+
+
+@pytest.fixture
 def client(session):
     from openforest.api.infrastructure.database import get_session
     from openforest.api.main import app
@@ -61,10 +82,26 @@ def client(session):
     app.dependency_overrides.clear()
 
 
-def test_create_project(client: TestClient, organization: Organization) -> None:
+@pytest.fixture
+def auth_headers(client, user):
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "test@test.com", "password": "secret123"},
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_create_project(
+    client: TestClient,
+    organization: Organization,
+    auth_headers: dict,
+    admin_membership: UserOrganization,
+) -> None:
     response = client.post(
         "/api/v1/projects",
         json={"name": "Reflorestamento Mata Atlântica", "organization_id": str(organization.id)},
+        headers=auth_headers,
     )
     assert response.status_code == 200
     data = response.json()
@@ -73,76 +110,104 @@ def test_create_project(client: TestClient, organization: Organization) -> None:
     assert "id" in data
 
 
-def test_list_projects_empty(client: TestClient) -> None:
-    response = client.get("/api/v1/projects")
+def test_list_projects_empty(client: TestClient, auth_headers: dict) -> None:
+    response = client.get("/api/v1/projects", headers=auth_headers)
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_get_project_not_found(client: TestClient, organization: Organization) -> None:
-    response = client.get(f"/api/v1/projects/{uuid4()}")
+def test_get_project_not_found(
+    client: TestClient, organization: Organization, auth_headers: dict
+) -> None:
+    response = client.get(f"/api/v1/projects/{uuid4()}", headers=auth_headers)
     assert response.status_code == 404
 
 
-def test_create_and_list(client: TestClient, organization: Organization) -> None:
+def test_create_and_list(
+    client: TestClient,
+    organization: Organization,
+    auth_headers: dict,
+    admin_membership: UserOrganization,
+) -> None:
     client.post(
         "/api/v1/projects",
         json={"name": "Projeto A", "organization_id": str(organization.id)},
+        headers=auth_headers,
     )
     client.post(
         "/api/v1/projects",
         json={"name": "Projeto B", "organization_id": str(organization.id)},
+        headers=auth_headers,
     )
-    response = client.get("/api/v1/projects")
+    response = client.get("/api/v1/projects", headers=auth_headers)
     assert len(response.json()) == 2
 
 
-def test_update_project(client: TestClient, organization: Organization) -> None:
+def test_update_project(
+    client: TestClient,
+    organization: Organization,
+    auth_headers: dict,
+    admin_membership: UserOrganization,
+) -> None:
     create_resp = client.post(
         "/api/v1/projects",
         json={"name": "Nome Original", "organization_id": str(organization.id)},
+        headers=auth_headers,
     )
     project_id = create_resp.json()["id"]
 
     response = client.patch(
         f"/api/v1/projects/{project_id}",
         json={"name": "Nome Atualizado"},
+        headers=auth_headers,
     )
     assert response.status_code == 200
     assert response.json()["name"] == "Nome Atualizado"
 
 
-def test_update_project_not_found(client: TestClient, organization: Organization) -> None:
+def test_update_project_not_found(
+    client: TestClient, organization: Organization, auth_headers: dict
+) -> None:
     response = client.patch(
         f"/api/v1/projects/{uuid4()}",
         json={"name": "Qualquer"},
+        headers=auth_headers,
     )
     assert response.status_code == 404
 
 
-def test_delete_project(client: TestClient, organization: Organization) -> None:
+def test_delete_project(
+    client: TestClient,
+    organization: Organization,
+    auth_headers: dict,
+    admin_membership: UserOrganization,
+) -> None:
     create_resp = client.post(
         "/api/v1/projects",
         json={"name": "Projeto para deletar", "organization_id": str(organization.id)},
+        headers=auth_headers,
     )
     project_id = create_resp.json()["id"]
 
-    response = client.delete(f"/api/v1/projects/{project_id}")
+    response = client.delete(f"/api/v1/projects/{project_id}", headers=auth_headers)
     assert response.status_code == 200
 
-    get_response = client.get(f"/api/v1/projects/{project_id}")
+    get_response = client.get(f"/api/v1/projects/{project_id}", headers=auth_headers)
     assert get_response.status_code == 404
 
 
-def test_delete_project_not_found(client: TestClient, organization: Organization) -> None:
-    response = client.delete(f"/api/v1/projects/{uuid4()}")
+def test_delete_project_not_found(
+    client: TestClient, organization: Organization, auth_headers: dict
+) -> None:
+    response = client.delete(f"/api/v1/projects/{uuid4()}", headers=auth_headers)
     assert response.status_code == 404
 
 
-def test_create_project_invalid_organization(client: TestClient) -> None:
+def test_create_project_invalid_organization(client: TestClient, auth_headers: dict) -> None:
     response = client.post(
         "/api/v1/projects",
         json={"name": "Projeto Inválido", "organization_id": str(uuid4())},
+        headers=auth_headers,
     )
     assert response.status_code == 422
     data = response.json()

@@ -8,9 +8,7 @@ from openforest.api.models.monitoring import Monitoring
 from openforest.api.schemas.monitoring import MonitoringCreate, MonitoringUpdate
 
 
-def create_monitoring(
-    session: Session, area_id: UUID, data: MonitoringCreate
-) -> Monitoring:
+def create_monitoring(session: Session, area_id: UUID, data: MonitoringCreate) -> Monitoring:
     area = session.get(Area, area_id)
     if not area:
         raise HTTPException(
@@ -34,11 +32,7 @@ def get_monitoring(session: Session, monitoring_id: UUID) -> Monitoring | None:
 
 
 def list_monitorings(session: Session, area_id: UUID) -> list[Monitoring]:
-    return list(
-        session.exec(
-            select(Monitoring).where(Monitoring.area_id == area_id)
-        ).all()
-    )
+    return list(session.exec(select(Monitoring).where(Monitoring.area_id == area_id)).all())
 
 
 def update_monitoring(

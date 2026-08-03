@@ -2,8 +2,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
+from openforest.api.dependencies.auth import CurrentUserDep, require_role
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.models.organization import Organization
+from openforest.api.models.user_organization import UserOrganizationRole
 from openforest.api.schemas.organization import (
     OrganizationCreate,
     OrganizationRead,
@@ -21,17 +23,23 @@ router = APIRouter(prefix="/organizations", tags=["organizações"])
 
 
 @router.post("/", response_model=OrganizationRead)
-def create_organization_route(session: SessionDep, data: OrganizationCreate) -> Organization:
+def create_organization_route(
+    session: SessionDep, current_user: CurrentUserDep, data: OrganizationCreate
+) -> Organization:
     return create_organization(session, data)
 
 
 @router.get("/", response_model=list[OrganizationRead])
-def list_organizations_route(session: SessionDep) -> list[Organization]:
+def list_organizations_route(
+    session: SessionDep, current_user: CurrentUserDep
+) -> list[Organization]:
     return list_organizations(session)
 
 
 @router.get("/{organization_id}", response_model=OrganizationRead)
-def get_organization_route(session: SessionDep, organization_id: UUID) -> Organization | None:
+def get_organization_route(
+    session: SessionDep, current_user: CurrentUserDep, organization_id: UUID
+) -> Organization | None:
     organization = get_organization(session, organization_id)
     if not organization:
         raise HTTPException(
@@ -44,8 +52,10 @@ def get_organization_route(session: SessionDep, organization_id: UUID) -> Organi
 @router.patch("/{organization_id}", response_model=OrganizationRead)
 def update_organization_route(
     session: SessionDep,
+    current_user: CurrentUserDep,
     organization_id: UUID,
     data: OrganizationUpdate,
+    _: None = require_role(UserOrganizationRole.admin, UserOrganizationRole.manager),
 ) -> Organization | None:
     organization = update_organization(session, organization_id, data)
     if not organization:
@@ -57,7 +67,12 @@ def update_organization_route(
 
 
 @router.delete("/{organization_id}")
-def delete_organization_route(session: SessionDep, organization_id: UUID) -> dict[str, str]:
+def delete_organization_route(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    organization_id: UUID,
+    _: None = require_role(UserOrganizationRole.admin),
+) -> dict[str, str]:
     deleted = delete_organization(session, organization_id)
     if not deleted:
         raise HTTPException(

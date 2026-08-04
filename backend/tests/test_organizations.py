@@ -168,15 +168,9 @@ def test_list_organizations_pagination(client: TestClient, auth_headers: dict) -
 
 
 def test_list_organizations_invalid_pagination(client: TestClient, auth_headers: dict) -> None:
-    assert (
-        client.get("/api/v1/organizations?limit=0", headers=auth_headers).status_code == 422
-    )
-    assert (
-        client.get("/api/v1/organizations?limit=101", headers=auth_headers).status_code == 422
-    )
-    assert (
-        client.get("/api/v1/organizations?offset=-1", headers=auth_headers).status_code == 422
-    )
+    assert client.get("/api/v1/organizations?limit=0", headers=auth_headers).status_code == 422
+    assert client.get("/api/v1/organizations?limit=101", headers=auth_headers).status_code == 422
+    assert client.get("/api/v1/organizations?offset=-1", headers=auth_headers).status_code == 422
 
 
 def test_get_organization(client: TestClient, auth_headers: dict) -> None:

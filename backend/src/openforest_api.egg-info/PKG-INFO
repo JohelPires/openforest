@@ -10,3 +10,4 @@ Requires-Dist: pyjwt>=2.8.0
 Requires-Dist: python-multipart
 Requires-Dist: redis>=5.0.0
 Requires-Dist: sqlmodel>=0.0.22
+Requires-Dist: boto3>=1.43.63

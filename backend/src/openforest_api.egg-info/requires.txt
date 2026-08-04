@@ -6,3 +6,4 @@ pyjwt>=2.8.0
 python-multipart
 redis>=5.0.0
 sqlmodel>=0.0.22
+boto3>=1.43.63

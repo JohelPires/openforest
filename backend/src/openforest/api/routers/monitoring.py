@@ -1,15 +1,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import Session
 
 from openforest.api.dependencies.auth import CurrentUserDep
+from openforest.api.dependencies.permissions import check_area_write_permission
 from openforest.api.infrastructure.database import SessionDep
-from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
-from openforest.api.models.project import Project
-from openforest.api.models.user import User
-from openforest.api.models.user_organization import UserOrganization, UserOrganizationRole
 from openforest.api.schemas.monitoring import (
     MonitoringCreate,
     MonitoringRead,
@@ -37,7 +33,7 @@ def list_monitorings_route(
 def create_monitoring_route(
     session: SessionDep, current_user: CurrentUserDep, area_id: UUID, data: MonitoringCreate
 ) -> Monitoring:
-    _check_write_permission(session, current_user, area_id)
+    check_area_write_permission(session, current_user, area_id)
     return create_monitoring(session, area_id, data)
 
 
@@ -64,7 +60,7 @@ def update_monitoring_route(
             status_code=404,
             detail=[{"msg": "Monitoramento não encontrado", "type": "not_found"}],
         )
-    _check_write_permission(session, current_user, monitoring.area_id)
+    check_area_write_permission(session, current_user, monitoring.area_id)
     monitoring = update_monitoring(session, monitoring_id, data)
     return monitoring
 
@@ -79,28 +75,6 @@ def delete_monitoring_route(
             status_code=404,
             detail=[{"msg": "Monitoramento não encontrado", "type": "not_found"}],
         )
-    _check_write_permission(session, current_user, monitoring.area_id)
+    check_area_write_permission(session, current_user, monitoring.area_id)
     delete_monitoring(session, monitoring_id)
     return {"msg": "Monitoramento deletado com sucesso"}
-
-
-def _check_write_permission(
-    session: Session,
-    user: User,
-    area_id: UUID,
-) -> None:
-    area = session.get(Area, area_id)
-    if not area:
-        return
-    project = session.get(Project, area.project_id)
-    if not project:
-        return
-    membership = session.get(UserOrganization, (user.id, project.organization_id))
-    if membership is None or membership.role not in (
-        UserOrganizationRole.admin,
-        UserOrganizationRole.manager,
-    ):
-        raise HTTPException(
-            status_code=403,
-            detail=[{"msg": "Permissão insuficiente", "type": "forbidden"}],
-        )

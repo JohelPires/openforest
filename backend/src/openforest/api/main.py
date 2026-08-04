@@ -1,13 +1,14 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from openforest.api.routers import areas, auth, monitoring, organizations, projects
+from openforest.api.routers import areas, auth, monitoring, organizations, photos, projects
 
 app = FastAPI(title="OpenForest API", version="0.1.0")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(organizations.router, prefix="/api/v1")
 app.include_router(areas.router, prefix="/api/v1")
 app.include_router(monitoring.router, prefix="/api/v1")
+app.include_router(photos.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 
 

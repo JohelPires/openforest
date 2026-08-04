@@ -22,6 +22,9 @@ services:
          redis:
             condition: service_healthy
 
+         minio:
+            condition: service_healthy
+
       restart: unless-stopped
 
    postgres:
@@ -73,7 +76,56 @@ services:
 
       restart: unless-stopped
 
+   minio:
+      image: minio/minio
+
+      container_name: openforest-minio
+
+      command: server /data --console-address ":9001"
+
+      environment:
+         MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+         MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+      ports:
+         - '${MINIO_PORT}:9000'
+         - '${MINIO_CONSOLE_PORT}:9001'
+
+      volumes:
+         - minio_data:/data
+
+      healthcheck:
+         test: ['CMD', 'mc', 'ready', 'local']
+
+         interval: 10s
+
+         timeout: 5s
+
+         retries: 5
+
+      restart: unless-stopped
+
+   minio-init:
+      image: minio/mc
+
+      container_name: openforest-minio-init
+
+      depends_on:
+         minio:
+            condition: service_healthy
+
+      entrypoint: ['/bin/sh', '-c']
+
+      command:
+         - |
+            mc alias set openforest http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+            mc mb --ignore-existing openforest/${MINIO_BUCKET}
+
+      restart: 'no'
+
 volumes:
    postgres_data:
 
    redis_data:
+
+   minio_data:

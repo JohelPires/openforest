@@ -14,8 +14,8 @@ Tokens JWT em localStorage com refresh automático · react-hook-form + zod · T
    - [x] `npx skills add addyosmani/web-quality-skills@accessibility -g -y`
    - [x] `npx skills add vercel-labs/agent-skills@writing-guidelines -g -y`
    - [x] `npx skills add coreyhaines31/marketingskills@copywriting -g -y`
-- [ ] Criar worktree/branch isolada para o frontend
-- [ ] `create-next-app` em `frontend/` (TypeScript, App Router, `src/`, Tailwind v4, ESLint, Prettier)
+- [x] Criar worktree/branch isolada para o frontend
+- [x] `create-next-app` em `frontend/` (TypeScript, App Router, `src/`, Tailwind v4, ESLint, Prettier)
 - [ ] `npx shadcn init` (alias `@/*`, tema OpenForest verde/terra)
 - [ ] `next.config.ts` com rewrites (`/api/:path*` → backend)
 - [ ] `.env.local` + `.env.example` (`BACKEND_URL`, sem secrets)

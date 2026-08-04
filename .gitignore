@@ -38,6 +38,7 @@ frontend/.env.local
 # ── Project / Docs ────────────────────────────────────────────
 TODO.md
 TODO-BACKEND.md
+TODO-FRONTEND.md
 
 # ── IDE / Editor ──────────────────────────────────────────────
 .idea/

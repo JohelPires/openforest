@@ -91,9 +91,9 @@ def user(session):
 
 
 @pytest.fixture
-def admin_membership(session, user, organization):
+def manager_membership(session, user, organization):
     membership = UserOrganization(
-        user_id=user.id, organization_id=organization.id, role=UserOrganizationRole.admin
+        user_id=user.id, organization_id=organization.id, role=UserOrganizationRole.manager
     )
     session.add(membership)
     session.commit()
@@ -101,7 +101,7 @@ def admin_membership(session, user, organization):
 
 
 @pytest.fixture
-def auth_headers(client, user):
+def auth_headers(client, user, manager_membership):
     response = client.post(
         "/api/v1/auth/login",
         json={"email": "test@test.com", "password": "secret123"},
@@ -110,8 +110,13 @@ def auth_headers(client, user):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _login_headers(client, email: str) -> dict:
+    response = client.post("/api/v1/auth/login", json={"email": email, "password": "secret123"})
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 def test_create_monitoring(
-    client: TestClient, area: Area, auth_headers: dict, admin_membership: UserOrganization
+    client: TestClient, area: Area, auth_headers: dict, manager_membership: UserOrganization
 ) -> None:
     response = client.post(
         f"/api/v1/areas/{area.id}/monitorings",
@@ -149,7 +154,7 @@ def test_list_monitorings_empty(client: TestClient, area: Area, auth_headers: di
 
 
 def test_list_monitorings_by_area(
-    client: TestClient, area: Area, auth_headers: dict, admin_membership: UserOrganization
+    client: TestClient, area: Area, auth_headers: dict, manager_membership: UserOrganization
 ) -> None:
     client.post(
         f"/api/v1/areas/{area.id}/monitorings",
@@ -170,7 +175,7 @@ def test_list_monitorings_scoped_to_area(
     area: Area,
     project: Project,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     other_area_resp = client.post(
         f"/api/v1/projects/{project.id}/areas",
@@ -196,7 +201,7 @@ def test_list_monitorings_scoped_to_area(
 
 
 def test_get_monitoring(
-    client: TestClient, area: Area, auth_headers: dict, admin_membership: UserOrganization
+    client: TestClient, area: Area, auth_headers: dict, manager_membership: UserOrganization
 ) -> None:
     create_resp = client.post(
         f"/api/v1/areas/{area.id}/monitorings",
@@ -216,7 +221,7 @@ def test_get_monitoring_not_found(client: TestClient, auth_headers: dict) -> Non
 
 
 def test_update_monitoring(
-    client: TestClient, area: Area, auth_headers: dict, admin_membership: UserOrganization
+    client: TestClient, area: Area, auth_headers: dict, manager_membership: UserOrganization
 ) -> None:
     create_resp = client.post(
         f"/api/v1/areas/{area.id}/monitorings",
@@ -245,7 +250,7 @@ def test_update_monitoring_not_found(client: TestClient, auth_headers: dict) -> 
 
 
 def test_delete_monitoring(
-    client: TestClient, area: Area, auth_headers: dict, admin_membership: UserOrganization
+    client: TestClient, area: Area, auth_headers: dict, manager_membership: UserOrganization
 ) -> None:
     create_resp = client.post(
         f"/api/v1/areas/{area.id}/monitorings",
@@ -263,4 +268,142 @@ def test_delete_monitoring(
 
 def test_delete_monitoring_not_found(client: TestClient, auth_headers: dict) -> None:
     response = client.delete(f"/api/v1/monitorings/{uuid4()}", headers=auth_headers)
+    assert response.status_code == 404
+
+
+def test_volunteer_can_create_monitoring(
+    client: TestClient,
+    area: Area,
+    organization: Organization,
+    session: Session,
+) -> None:
+    volunteer = User(
+        name="Volunteer", email="volmon@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(volunteer)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=volunteer.id, organization_id=organization.id,
+            role=UserOrganizationRole.volunteer,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "volmon@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.post(
+        f"/api/v1/areas/{area.id}/monitorings",
+        json={"visit_date": "2026-07-01"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+
+def test_viewer_cannot_create_monitoring(
+    client: TestClient,
+    area: Area,
+    organization: Organization,
+    session: Session,
+) -> None:
+    viewer = User(
+        name="Viewer", email="viewermon@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(viewer)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=viewer.id, organization_id=organization.id,
+            role=UserOrganizationRole.viewer,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "viewermon@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.post(
+        f"/api/v1/areas/{area.id}/monitorings",
+        json={"visit_date": "2026-07-01"},
+        headers=headers,
+    )
+    assert response.status_code == 403
+
+
+def test_volunteer_cannot_update_monitoring(
+    client: TestClient,
+    area: Area,
+    organization: Organization,
+    session: Session,
+    auth_headers: dict,
+) -> None:
+    create_resp = client.post(
+        f"/api/v1/areas/{area.id}/monitorings",
+        json={"visit_date": "2026-07-01", "seedling_count": 100},
+        headers=auth_headers,
+    )
+    monitoring_id = create_resp.json()["id"]
+
+    volunteer = User(
+        name="Volunteer 2", email="volmon2@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(volunteer)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=volunteer.id, organization_id=organization.id,
+            role=UserOrganizationRole.volunteer,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "volmon2@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.patch(
+        f"/api/v1/monitorings/{monitoring_id}",
+        json={"seedling_count": 200},
+        headers=headers,
+    )
+    assert response.status_code == 403
+
+
+def test_user_cannot_read_other_org_monitoring(
+    client: TestClient,
+    session: Session,
+    area: Area,
+    organization: Organization,
+    auth_headers: dict,
+) -> None:
+    other_org = Organization(name="Outra ONG", slug="outra-ong-mon")
+    other_user = User(
+        name="Other", email="othermon@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(other_org)
+    session.add(other_user)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=other_user.id, organization_id=other_org.id,
+            role=UserOrganizationRole.manager,
+        )
+    )
+    session.commit()
+
+    create_resp = client.post(
+        f"/api/v1/areas/{area.id}/monitorings",
+        json={"visit_date": "2026-07-01"},
+        headers=auth_headers,
+    )
+    monitoring_id = create_resp.json()["id"]
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "othermon@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.get(f"/api/v1/monitorings/{monitoring_id}", headers=headers)
     assert response.status_code == 404

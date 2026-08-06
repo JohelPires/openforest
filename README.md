@@ -198,6 +198,7 @@ openforest/
 The application is organized into business domains instead of technical layers.
 
 - Authentication
+- Organizations
 - Projects
 - Restoration Areas
 - Monitoring
@@ -231,6 +232,29 @@ Benefits include:
 - Better testing
 
 Interactive documentation is automatically generated using OpenAPI.
+
+---
+
+# Multi-tenancy & RBAC
+
+OpenForest is a **multi-tenant** platform: every user belongs to exactly one **organization**, and the server scopes all reads and writes to that organization automatically — clients never supply or control the tenant.
+
+## Roles
+
+| Role | Scope | Powers |
+|---|---|---|
+| Platform admin (`is_superuser`) | all tenants | everything, bypasses org checks |
+| `manager` | own org | org admin — manages members, edits org, full CRUD |
+| `researcher` / technician | own org | full CRUD on projects, areas, monitoring, photos; export |
+| `volunteer` | own org | field data entry (create monitoring, upload photos) |
+| `viewer` | own org | read only |
+
+## Flow
+
+1. User registers (orphan, no org) → gets 403 until a `manager` links them.
+2. `POST /organizations` → creator is auto-linked as `manager` of the new org.
+3. Managers manage members via `/organizations/{id}/members` (single-org: adding a user already in another org returns 409).
+4. Every user's queries are scoped to their org server-side — a researcher listing projects sees only their organization's projects.
 
 ---
 
@@ -388,7 +412,7 @@ Upcoming engineering milestones include:
 - OpenTelemetry
 - Distributed tracing
 - Rate limiting
-- RBAC
+- Data exports (researcher+)
 - Public SDK
 
 ---

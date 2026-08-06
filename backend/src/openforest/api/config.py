@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     storage_backend: str = "local"
     storage_path: str = "./uploads"
+    s3_endpoint_url: str | None = None
+    s3_bucket: str = "openforest"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_region: str = "us-east-1"
+    max_upload_size_mb: int = 10
 
     model_config = {"env_file": ".env"}
 

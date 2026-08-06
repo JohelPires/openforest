@@ -5,6 +5,7 @@ src/openforest/api/config.py
 src/openforest/api/main.py
 src/openforest/api/dependencies/__init__.py
 src/openforest/api/dependencies/auth.py
+src/openforest/api/dependencies/pagination.py
 src/openforest/api/infrastructure/__init__.py
 src/openforest/api/infrastructure/database.py
 src/openforest/api/infrastructure/env.py
@@ -32,6 +33,7 @@ src/openforest/api/schemas/area.py
 src/openforest/api/schemas/auth.py
 src/openforest/api/schemas/monitoring.py
 src/openforest/api/schemas/organization.py
+src/openforest/api/schemas/pagination.py
 src/openforest/api/schemas/project.py
 src/openforest/api/services/__init__.py
 src/openforest/api/services/area_service.py

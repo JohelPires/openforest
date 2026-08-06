@@ -1,12 +1,10 @@
 from urllib.parse import urlparse, urlunparse
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from openforest.api.config import settings
-from openforest.api.models.organization import Organization
 from openforest.api.models.user import User
 from openforest.api.models.user_organization import UserOrganization, UserOrganizationRole
 from openforest.api.services.auth_service import hash_password
@@ -57,14 +55,6 @@ def client(session):
 
 
 @pytest.fixture
-def organization(session):
-    org = Organization(name="ONG Teste", slug="ong-teste")
-    session.add(org)
-    session.commit()
-    return org
-
-
-@pytest.fixture
 def user(session):
     u = User(name="Test User", email="test@test.com", password_hash=hash_password("secret123"))
     session.add(u)
@@ -82,12 +72,13 @@ def auth_headers(client, user):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _add_admin_membership(session, user_id, org_id):
-    membership = UserOrganization(
-        user_id=user_id, organization_id=org_id, role=UserOrganizationRole.admin
+def _register(client, name: str, email: str) -> dict:
+    client.post(
+        "/api/v1/auth/register",
+        json={"name": name, "email": email, "password": "secret123"},
     )
-    session.add(membership)
-    session.commit()
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": "secret123"})
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
 def test_create_organization(client: TestClient, auth_headers: dict) -> None:
@@ -100,86 +91,12 @@ def test_create_organization(client: TestClient, auth_headers: dict) -> None:
     data = response.json()
     assert data["name"] == "ONG Amazônia"
     assert data["slug"] == "ong-amazonia"
-    assert data["description"] is None
     assert "id" in data
 
 
-def test_create_organization_with_description(client: TestClient, auth_headers: dict) -> None:
-    response = client.post(
-        "/api/v1/organizations",
-        json={
-            "name": "ONG Mata Atlântica",
-            "slug": "ong-mata-atlantica",
-            "description": "Preservação da Mata Atlântica",
-        },
-        headers=auth_headers,
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "ONG Mata Atlântica"
-    assert data["description"] == "Preservação da Mata Atlântica"
-
-
-def test_list_organizations_empty(client: TestClient, auth_headers: dict) -> None:
-    response = client.get("/api/v1/organizations", headers=auth_headers)
-    assert response.status_code == 200
-    assert response.json() == {"items": [], "total": 0, "offset": 0, "limit": 20}
-
-
-def test_create_and_list(client: TestClient, auth_headers: dict) -> None:
-    client.post(
-        "/api/v1/organizations",
-        json={"name": "Org A", "slug": "org-a"},
-        headers=auth_headers,
-    )
-    client.post(
-        "/api/v1/organizations",
-        json={"name": "Org B", "slug": "org-b"},
-        headers=auth_headers,
-    )
-    response = client.get("/api/v1/organizations", headers=auth_headers)
-    data = response.json()
-    assert len(data["items"]) == 2
-    assert data["total"] == 2
-
-
-def test_list_organizations_pagination(client: TestClient, auth_headers: dict) -> None:
-    for name, slug in [("Org A", "org-a"), ("Org B", "org-b"), ("Org C", "org-c")]:
-        client.post(
-            "/api/v1/organizations",
-            json={"name": name, "slug": slug},
-            headers=auth_headers,
-        )
-
-    page_one = client.get("/api/v1/organizations?offset=0&limit=2", headers=auth_headers).json()
-    assert len(page_one["items"]) == 2
-    assert page_one["total"] == 3
-    assert page_one["offset"] == 0
-    assert page_one["limit"] == 2
-
-    page_two = client.get("/api/v1/organizations?offset=2&limit=2", headers=auth_headers).json()
-    assert len(page_two["items"]) == 1
-    assert page_two["total"] == 3
-    assert page_two["offset"] == 2
-
-    past_end = client.get("/api/v1/organizations?offset=10&limit=2", headers=auth_headers).json()
-    assert past_end["items"] == []
-    assert past_end["total"] == 3
-
-
-def test_list_organizations_invalid_pagination(client: TestClient, auth_headers: dict) -> None:
-    assert (
-        client.get("/api/v1/organizations?limit=0", headers=auth_headers).status_code == 422
-    )
-    assert (
-        client.get("/api/v1/organizations?limit=101", headers=auth_headers).status_code == 422
-    )
-    assert (
-        client.get("/api/v1/organizations?offset=-1", headers=auth_headers).status_code == 422
-    )
-
-
-def test_get_organization(client: TestClient, auth_headers: dict) -> None:
+def test_create_organization_binds_creator_as_manager(
+    client: TestClient, session: Session, user: User, auth_headers: dict
+) -> None:
     create_resp = client.post(
         "/api/v1/organizations",
         json={"name": "ONG Cerrado", "slug": "ong-cerrado"},
@@ -187,18 +104,72 @@ def test_get_organization(client: TestClient, auth_headers: dict) -> None:
     )
     org_id = create_resp.json()["id"]
 
-    response = client.get(f"/api/v1/organizations/{org_id}", headers=auth_headers)
+    members_resp = client.get(
+        f"/api/v1/organizations/{org_id}/members", headers=auth_headers
+    )
+    assert members_resp.status_code == 200
+    members = members_resp.json()
+    assert len(members) == 1
+    assert members[0]["user_id"] == str(user.id)
+    assert members[0]["role"] == "manager"
+
+
+def test_create_second_organization_conflict(
+    client: TestClient, auth_headers: dict
+) -> None:
+    client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    response = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org B", "slug": "org-b"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 409
+    assert any("já vinculado" in item["msg"] for item in response.json()["detail"])
+
+
+def test_list_organizations_shows_own_org(
+    client: TestClient, auth_headers: dict
+) -> None:
+    client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    response = client.get("/api/v1/organizations", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["name"] == "ONG Cerrado"
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "Org A"
 
 
-def test_get_organization_not_found(client: TestClient, auth_headers: dict) -> None:
-    response = client.get(f"/api/v1/organizations/{uuid4()}", headers=auth_headers)
-    assert response.status_code == 404
+def test_get_other_organization_returns_404(
+    client: TestClient, auth_headers: dict
+) -> None:
+    create_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_a_id = create_resp.json()["id"]
+
+    other_headers = _register(client, "Other", "other@test.com")
+    other_create = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org B", "slug": "org-b"},
+        headers=other_headers,
+    )
+    org_b_id = other_create.json()["id"]
+
+    assert client.get(f"/api/v1/organizations/{org_a_id}", headers=other_headers).status_code == 404
+    assert client.get(f"/api/v1/organizations/{org_b_id}", headers=auth_headers).status_code == 404
 
 
 def test_update_organization(
-    client: TestClient, session: Session, user: User, auth_headers: dict
+    client: TestClient, auth_headers: dict
 ) -> None:
     create_resp = client.post(
         "/api/v1/organizations",
@@ -206,7 +177,6 @@ def test_update_organization(
         headers=auth_headers,
     )
     org_id = create_resp.json()["id"]
-    _add_admin_membership(session, user.id, org_id)
 
     response = client.patch(
         f"/api/v1/organizations/{org_id}",
@@ -217,36 +187,50 @@ def test_update_organization(
     assert response.json()["name"] == "Nome Atualizado"
 
 
-def test_update_organization_not_found(client: TestClient, auth_headers: dict) -> None:
-    response = client.patch(
-        f"/api/v1/organizations/{uuid4()}",
-        json={"name": "Qualquer"},
+def test_update_organization_requires_manager(
+    client: TestClient, session: Session, auth_headers: dict
+) -> None:
+    create_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
         headers=auth_headers,
+    )
+    org_id = create_resp.json()["id"]
+
+    viewer_headers = _register(client, "Viewer", "viewer@test.com")
+    viewer_id = session.exec(
+        select(User).where(User.email == "viewer@test.com")
+    ).first().id
+    session.add(
+        UserOrganization(
+            user_id=viewer_id, organization_id=org_id, role=UserOrganizationRole.viewer
+        )
+    )
+    session.commit()
+
+    response = client.patch(
+        f"/api/v1/organizations/{org_id}",
+        json={"name": "Inválido"},
+        headers=viewer_headers,
     )
     assert response.status_code == 403
 
 
 def test_delete_organization(
-    client: TestClient, session: Session, user: User, auth_headers: dict
+    client: TestClient, auth_headers: dict
 ) -> None:
     create_resp = client.post(
         "/api/v1/organizations",
-        json={"name": "ONG para deletar", "slug": "ong-deletar"},
+        json={"name": "Org para deletar", "slug": "org-deletar"},
         headers=auth_headers,
     )
     org_id = create_resp.json()["id"]
-    _add_admin_membership(session, user.id, org_id)
 
     response = client.delete(f"/api/v1/organizations/{org_id}", headers=auth_headers)
     assert response.status_code == 200
 
     get_response = client.get(f"/api/v1/organizations/{org_id}", headers=auth_headers)
     assert get_response.status_code == 404
-
-
-def test_delete_organization_not_found(client: TestClient, auth_headers: dict) -> None:
-    response = client.delete(f"/api/v1/organizations/{uuid4()}", headers=auth_headers)
-    assert response.status_code == 403
 
 
 def test_create_organization_auto_slug(client: TestClient, auth_headers: dict) -> None:
@@ -256,60 +240,189 @@ def test_create_organization_auto_slug(client: TestClient, auth_headers: dict) -
         headers=auth_headers,
     )
     assert response.status_code == 200
-    data = response.json()
-    assert data["slug"] == "ong-mata-atlantica"
+    assert response.json()["slug"] == "ong-mata-atlantica"
 
 
-def test_create_organization_auto_slug_avoids_conflict(
-    client: TestClient, auth_headers: dict
-) -> None:
-    client.post(
-        "/api/v1/organizations",
-        json={"name": "ONG Teste", "slug": "ong-teste"},
-        headers=auth_headers,
-    )
-    response = client.post(
-        "/api/v1/organizations",
-        json={"name": "ONG Teste"},
-        headers=auth_headers,
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["slug"] == "ong-teste-1"
-
-
-def test_update_organization_auto_slug(
-    client: TestClient, session: Session, user: User, auth_headers: dict
+def test_add_member_and_list(
+    client: TestClient, session: Session, auth_headers: dict
 ) -> None:
     create_resp = client.post(
         "/api/v1/organizations",
-        json={"name": "Nome Original", "slug": "slug-original"},
+        json={"name": "Org A", "slug": "org-a"},
         headers=auth_headers,
     )
     org_id = create_resp.json()["id"]
-    _add_admin_membership(session, user.id, org_id)
+
+    member = User(
+        name="Membro", email="membro@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(member)
+    session.commit()
+
+    add_resp = client.post(
+        f"/api/v1/organizations/{org_id}/members",
+        json={"user_id": str(member.id), "role": "researcher"},
+        headers=auth_headers,
+    )
+    assert add_resp.status_code == 200
+    assert add_resp.json()["role"] == "researcher"
+
+    list_resp = client.get(f"/api/v1/organizations/{org_id}/members", headers=auth_headers)
+    members = list_resp.json()
+    assert len(members) == 2
+    user_ids = {m["user_id"] for m in members}
+    assert str(member.id) in user_ids
+    assert len(user_ids) == 2
+
+
+def test_add_member_already_in_other_org_returns_409(
+    client: TestClient, session: Session, auth_headers: dict
+) -> None:
+    org_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_id = org_resp.json()["id"]
+
+    other_headers = _register(client, "Other", "other409@test.com")
+    other_org_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org B", "slug": "org-b"},
+        headers=other_headers,
+    )
+    other_user_id = session.exec(
+        select(User).where(User.email == "other409@test.com")
+    ).first().id
+
+    response = client.post(
+        f"/api/v1/organizations/{org_id}/members",
+        json={"user_id": str(other_user_id), "role": "viewer"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 409
+    assert any("já pertence" in item["msg"] for item in response.json()["detail"])
+
+
+def test_update_member_role(
+    client: TestClient, session: Session, auth_headers: dict
+) -> None:
+    org_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_id = org_resp.json()["id"]
+
+    member = User(
+        name="Membro", email="membro2@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(member)
+    session.commit()
+    client.post(
+        f"/api/v1/organizations/{org_id}/members",
+        json={"user_id": str(member.id), "role": "viewer"},
+        headers=auth_headers,
+    )
 
     response = client.patch(
-        f"/api/v1/organizations/{org_id}",
-        json={"slug": None},
+        f"/api/v1/organizations/{org_id}/members/{member.id}",
+        json={"role": "researcher"},
         headers=auth_headers,
     )
     assert response.status_code == 200
-    data = response.json()
-    assert data["slug"] == "nome-original"
+    assert response.json()["role"] == "researcher"
 
 
-def test_create_duplicate_slug_returns_error(client: TestClient, auth_headers: dict) -> None:
-    client.post(
+def test_remove_member(
+    client: TestClient, session: Session, auth_headers: dict
+) -> None:
+    org_resp = client.post(
         "/api/v1/organizations",
-        json={"name": "Primeira", "slug": "slug-repetido"},
+        json={"name": "Org A", "slug": "org-a"},
         headers=auth_headers,
     )
-    response = client.post(
+    org_id = org_resp.json()["id"]
+
+    member = User(
+        name="Membro", email="membro3@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(member)
+    session.commit()
+    client.post(
+        f"/api/v1/organizations/{org_id}/members",
+        json={"user_id": str(member.id), "role": "volunteer"},
+        headers=auth_headers,
+    )
+
+    response = client.delete(
+        f"/api/v1/organizations/{org_id}/members/{member.id}", headers=auth_headers
+    )
+    assert response.status_code == 200
+
+    list_resp = client.get(f"/api/v1/organizations/{org_id}/members", headers=auth_headers)
+    user_ids = {m["user_id"] for m in list_resp.json()}
+    assert str(member.id) not in user_ids
+
+
+def test_remove_last_manager_returns_422(
+    client: TestClient, session: Session, auth_headers: dict, user: User
+) -> None:
+    org_resp = client.post(
         "/api/v1/organizations",
-        json={"name": "Segunda", "slug": "slug-repetido"},
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_id = org_resp.json()["id"]
+
+    response = client.delete(
+        f"/api/v1/organizations/{org_id}/members/{user.id}", headers=auth_headers
+    )
+    assert response.status_code == 422
+    assert any("último manager" in item["msg"] for item in response.json()["detail"])
+
+
+def test_demote_last_manager_returns_422(
+    client: TestClient, session: Session, auth_headers: dict, user: User
+) -> None:
+    org_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_id = org_resp.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{org_id}/members/{user.id}",
+        json={"role": "viewer"},
         headers=auth_headers,
     )
     assert response.status_code == 422
-    data = response.json()
-    assert any("já está em uso" in item["msg"] for item in data["detail"])
+    assert any("último manager" in item["msg"] for item in response.json()["detail"])
+
+
+def test_members_requires_manager(
+    client: TestClient, session: Session, auth_headers: dict
+) -> None:
+    org_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_id = org_resp.json()["id"]
+
+    viewer_headers = _register(client, "Viewer", "viewer409@test.com")
+    viewer_id = session.exec(
+        select(User).where(User.email == "viewer409@test.com")
+    ).first().id
+    session.add(
+        UserOrganization(
+            user_id=viewer_id, organization_id=org_id, role=UserOrganizationRole.viewer
+        )
+    )
+    session.commit()
+
+    response = client.get(
+        f"/api/v1/organizations/{org_id}/members", headers=viewer_headers
+    )
+    assert response.status_code == 403

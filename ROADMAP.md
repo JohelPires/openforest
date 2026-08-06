@@ -118,6 +118,9 @@ Allow organizations to register and monitor restoration projects.
 - JWT
 - Refresh tokens
 - RBAC
+- Multi-tenant scoping (single-org per user, server-side)
+- Organization membership management (manager/superuser)
+- Global platform admin (`is_superuser`)
 
 ## Projects
 

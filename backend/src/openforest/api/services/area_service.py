@@ -8,7 +8,9 @@ from openforest.api.models.project import Project
 from openforest.api.schemas.area import AreaCreate, AreaUpdate
 
 
-def create_area(session: Session, project_id: UUID, data: AreaCreate) -> Area:
+def create_area(
+    session: Session, project_id: UUID, data: AreaCreate, organization_id: UUID
+) -> Area:
     project = session.get(Project, project_id)
     if not project:
         raise HTTPException(
@@ -20,6 +22,11 @@ def create_area(session: Session, project_id: UUID, data: AreaCreate) -> Area:
                 }
             ],
         )
+    if project.organization_id != organization_id:
+        raise HTTPException(
+            status_code=403,
+            detail=[{"msg": "Permissão insuficiente", "type": "forbidden"}],
+        )
     area = Area(**data.model_dump(), project_id=project_id)
     session.add(area)
     session.commit()
@@ -27,12 +34,22 @@ def create_area(session: Session, project_id: UUID, data: AreaCreate) -> Area:
     return area
 
 
-def get_area(session: Session, area_id: UUID) -> Area | None:
-    return session.get(Area, area_id)
+def get_area(
+    session: Session, area_id: UUID, organization_id: UUID | None = None
+) -> Area | None:
+    stmt = select(Area).join(Project).where(Area.id == area_id)
+    if organization_id is not None:
+        stmt = stmt.where(Project.organization_id == organization_id)
+    return session.exec(stmt).first()
 
 
-def list_areas(session: Session, project_id: UUID) -> list[Area]:
-    return list(session.exec(select(Area).where(Area.project_id == project_id)).all())
+def list_areas(
+    session: Session, project_id: UUID, organization_id: UUID | None = None
+) -> list[Area]:
+    stmt = select(Area).join(Project).where(Area.project_id == project_id)
+    if organization_id is not None:
+        stmt = stmt.where(Project.organization_id == organization_id)
+    return list(session.exec(stmt).all())
 
 
 def update_area(session: Session, area_id: UUID, data: AreaUpdate) -> Area | None:

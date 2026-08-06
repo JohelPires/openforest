@@ -272,13 +272,16 @@ Responsibilities
 Responsibilities
 
 - User profile
-- Organization membership
+- Organization membership (single-org)
+- Global platform admin flag (`is_superuser`)
 
 ---
 
 ## Organizations
 
 Represents NGOs, universities, companies and public institutions.
+
+Acts as the **tenant boundary**: every user belongs to exactly one organization, and all data access is scoped to it server-side.
 
 ---
 
@@ -442,19 +445,26 @@ SSO
 
 # Authorization
 
-Role-based.
+Role-based, scoped by organization (single-org per user).
 
-Example roles:
+Roles per organization:
 
-- Administrator
-- Manager
-- Researcher
-- Volunteer
-- Viewer
+- Manager (org admin: members, org settings, full CRUD)
+- Researcher (full data access: projects, areas, monitoring, photos, export)
+- Volunteer (field data entry: monitoring + photos)
+- Viewer (read only)
+
+Platform role:
+
+- Global admin (`is_superuser`) — bypasses all org checks
+
+The server resolves the user's organization from its membership and scopes every query. Clients never send a tenant id.
 
 Future:
 
-Attribute-based authorization.
+- Attribute-based authorization
+- Row-level security (PostgreSQL RLS) if the monolith grows
+- Per-project access control
 
 ---
 

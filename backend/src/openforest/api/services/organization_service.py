@@ -6,6 +6,8 @@ from fastapi import HTTPException
 from sqlmodel import Session, func, select
 
 from openforest.api.models.organization import Organization
+from openforest.api.models.user import User
+from openforest.api.models.user_organization import UserOrganization, UserOrganizationRole
 from openforest.api.schemas.organization import OrganizationCreate, OrganizationUpdate
 
 
@@ -42,15 +44,43 @@ def _check_slug_unique(session: Session, slug: str, exclude_id: UUID | None = No
         )
 
 
-def create_organization(session: Session, data: OrganizationCreate) -> Organization:
+def create_organization(
+    session: Session, data: OrganizationCreate, current_user: User
+) -> Organization:
+    if not current_user.is_superuser:
+        existing = session.exec(
+            select(UserOrganization).where(UserOrganization.user_id == current_user.id)
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=[
+                    {
+                        "msg": "Usuário já vinculado a uma organização",
+                        "type": "conflict",
+                    }
+                ],
+            )
+
     if data.slug:
         _check_slug_unique(session, data.slug.strip())
         slug = data.slug.strip()
     else:
         slug = _generate_unique_slug(session, data.name)
 
-    organization = Organization(**data.model_dump(exclude={"slug"}), slug=slug)
+    organization = Organization(
+        **data.model_dump(exclude={"slug"}), slug=slug, created_by=current_user.id
+    )
     session.add(organization)
+    session.flush()
+    if not current_user.is_superuser:
+        session.add(
+            UserOrganization(
+                user_id=current_user.id,
+                organization_id=organization.id,
+                role=UserOrganizationRole.manager,
+            )
+        )
     session.commit()
     session.refresh(organization)
     return organization

@@ -104,11 +104,12 @@ def require_org_role(*roles: UserOrganizationRole) -> Any:
     return Depends(checker)
 
 
-def require_org_access(organization_id: UUID, *roles: UserOrganizationRole) -> Any:
+def require_org_access(*roles: UserOrganizationRole) -> Any:
     def checker(
         session: Annotated[Session, Depends(get_session)],
         current_user: CurrentUserDep,
         current_org: CurrentOrgDep,
+        organization_id: UUID,
     ) -> None:
         if current_user.is_superuser:
             return
@@ -132,22 +133,3 @@ def require_superuser(current_user: CurrentUserDep) -> None:
             status_code=403,
             detail=[{"msg": "Permissão insuficiente", "type": "forbidden"}],
         )
-
-
-def require_role(*roles: UserOrganizationRole) -> Any:
-    def checker(
-        session: Annotated[Session, Depends(get_session)],
-        current_user: CurrentUserDep,
-        organization_id: UUID,
-    ) -> None:
-        membership = session.get(
-            UserOrganization,
-            (current_user.id, organization_id),
-        )
-        if membership is None or membership.role not in roles:
-            raise HTTPException(
-                status_code=403,
-                detail=[{"msg": "Permissão insuficiente", "type": "forbidden"}],
-            )
-
-    return Depends(checker)

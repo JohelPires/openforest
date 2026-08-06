@@ -15,11 +15,15 @@ Documentos complementares:
 
 ### User Personas
 
-- **ONG** — acompanha centenas de áreas restauradas
-- **Prefeitura** — métricas agregadas (ex: árvores plantadas)
-- **Pesquisador** — exporta dados brutos para análise
-- **Voluntário** — registra fotos e observações em campo
-- **Proprietário rural** — acompanha indicadores da própria área
+As personas se materializam como **papéis por organização** (ver [Authentication](#authentication)):
+
+- **ONG** — papel `manager`: cria a organização (vira manager), gerencia membros, projetos e áreas
+- **Prefeitura** — papel `viewer`/`researcher`: métricas agregadas (ex: árvores plantadas)
+- **Pesquisador / técnico** — papel `researcher`: acesso completo aos dados da organização (projetos, áreas, monitoramentos, fotos, export)
+- **Voluntário** — papel `volunteer`: registra fotos e observações em campo (cria monitoramentos, envia fotos)
+- **Proprietário rural** — papel `viewer`: acompanha indicadores da própria área
+
+> **Multi-tenant:** cada usuário pertence a exatamente uma organização. Todas as leituras e escritas são escopadas pelo servidor à organização do usuário (`CurrentOrgDep`). O admin global (`is_superuser`) ignora o escopo.
 
 ### MVP Scope
 
@@ -269,16 +273,33 @@ Versão via prefixo `/v1/` nos routers. Adicionar `/v2/` quando necessário sem 
 
 ```python
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
+CurrentOrgDep = Annotated[UserOrganization, Depends(get_current_org)]
 ```
 
-Get current user decodifica JWT do header `Authorization: Bearer <token>` e busca no DB.
+Get current user decodifica JWT do header `Authorization: Bearer <token>` e busca no DB. `get_current_org` resolve a organização única do usuário (403 se não vinculado).
+
+### Roles & Multi-tenant Scoping
+
+- **Admin global:** `User.is_superuser` — ignora todos os checks de organização
+- **Papéis por organização:** `manager | researcher | volunteer | viewer`
+- **Single-org:** cada usuário pertence a uma única organização; o servidor escopa toda leitura por ela (clientes nunca enviam tenant)
+- Capacidade vem do **papel na org**, não da posse da linha (`created_by` é auditoria, não permissão)
+
+```python
+# Roteamento de permissões
+require_org_role(UserOrganizationRole.manager, UserOrganizationRole.researcher)
+require_superuser
+require_area_role(area_id, UserOrganizationRole.volunteer)  # monitoramentos/fotos
+```
 
 ### Endpoints
 
-- `POST /v1/auth/register` — criar conta
+- `POST /v1/auth/register` — criar conta (usuário órfão, sem org; recebe 403 até ser vinculado)
 - `POST /v1/auth/login` — retorna access + refresh token
 - `POST /v1/auth/refresh` — novo access token via refresh token
 - `POST /v1/auth/logout` — invalidar refresh token
+- `POST /v1/organizations` — criar organização; vincula o criador como `manager` na mesma transação
+- `GET/POST/PATCH/DELETE /v1/organizations/{id}/members` — gerenciar membros (manager/superuser); add de usuário de outra org retorna 409
 
 ## Testing
 

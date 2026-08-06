@@ -26,7 +26,10 @@ def upgrade() -> None:
         USING user_organization b
         WHERE a.user_id = b.user_id
           AND a.organization_id <> b.organization_id
-          AND a.role > b.role
+          AND (
+            a.role > b.role
+            OR (a.role = b.role AND a.organization_id > b.organization_id)
+          )
         """
     )
 

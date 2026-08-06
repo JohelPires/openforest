@@ -70,6 +70,27 @@ def update_member_role(
             status_code=404,
             detail=[{"msg": "Membro não encontrado", "type": "not_found"}],
         )
+    if (
+        membership.role == UserOrganizationRole.manager
+        and data.role != UserOrganizationRole.manager
+    ):
+        other_managers = session.exec(
+            select(UserOrganization).where(
+                UserOrganization.organization_id == organization_id,
+                UserOrganization.role == UserOrganizationRole.manager,
+                UserOrganization.user_id != user_id,
+            )
+        ).all()
+        if not other_managers:
+            raise HTTPException(
+                status_code=422,
+                detail=[
+                    {
+                        "msg": "Não é possível remover o último manager",
+                        "type": "last_manager",
+                    }
+                ],
+            )
     membership.role = data.role
     session.commit()
     session.refresh(membership)

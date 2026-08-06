@@ -382,6 +382,25 @@ def test_remove_last_manager_returns_422(
     assert any("último manager" in item["msg"] for item in response.json()["detail"])
 
 
+def test_demote_last_manager_returns_422(
+    client: TestClient, session: Session, auth_headers: dict, user: User
+) -> None:
+    org_resp = client.post(
+        "/api/v1/organizations",
+        json={"name": "Org A", "slug": "org-a"},
+        headers=auth_headers,
+    )
+    org_id = org_resp.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/organizations/{org_id}/members/{user.id}",
+        json={"role": "viewer"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+    assert any("último manager" in item["msg"] for item in response.json()["detail"])
+
+
 def test_members_requires_manager(
     client: TestClient, session: Session, auth_headers: dict
 ) -> None:

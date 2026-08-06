@@ -2,8 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/password-input";
+import { ApiError, login } from "@/lib/api";
+import { setSession } from "@/lib/auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -11,15 +14,15 @@ const inputClasses =
   "h-12 w-full rounded-xl border border-forest/15 bg-cream px-4 text-forest placeholder:text-moss/40 transition-shadow duration-300 focus:border-forest focus:outline-none focus:ring-4 focus:ring-forest/15";
 
 export function LoginForm() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [pending, setPending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSuccess(false);
 
     if (!EMAIL_RE.test(email.trim())) {
       setError("Informe um e-mail válido para entrar.");
@@ -31,7 +34,21 @@ export function LoginForm() {
     }
 
     setError(null);
-    setSuccess(true);
+    setPending(true);
+
+    try {
+      const tokens = await login({ email: email.trim(), password });
+      setSession(tokens, remember);
+      router.push("/painel");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Não foi possível entrar. Tente novamente.",
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -42,13 +59,6 @@ export function LoginForm() {
           className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm leading-relaxed text-destructive"
         >
           {error}
-        </p>
-      ) : null}
-
-      {success ? (
-        <p className="mb-5 rounded-xl border border-sage bg-sage/30 px-4 py-3 text-sm leading-relaxed text-forest">
-          Sessão iniciada. Este é um preview visual — o backend ainda não está
-          conectado.
         </p>
       ) : null}
 
@@ -108,13 +118,23 @@ export function LoginForm() {
 
       <button
         type="submit"
-        className="group mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-forest text-sm font-medium text-cream transition-all duration-300 hover:bg-forest/90 hover:shadow-lg hover:shadow-forest/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2 focus-visible:ring-offset-mist"
+        disabled={pending}
+        className="group mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-forest text-sm font-medium text-cream transition-all duration-300 hover:bg-forest/90 hover:shadow-lg hover:shadow-forest/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2 focus-visible:ring-offset-mist disabled:pointer-events-none disabled:opacity-60"
       >
-        Entrar no painel
-        <ArrowRight
-          className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
-          aria-hidden="true"
-        />
+        {pending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Entrando...
+          </>
+        ) : (
+          <>
+            Entrar no painel
+            <ArrowRight
+              className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+              aria-hidden="true"
+            />
+          </>
+        )}
       </button>
 
       <p className="mt-7 text-center text-sm text-moss">

@@ -2,8 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { PasswordInput } from "@/components/password-input";
+import { ApiError, register } from "@/lib/api";
+import { setSession } from "@/lib/auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
@@ -12,17 +15,17 @@ const inputClasses =
   "h-12 w-full rounded-xl border border-forest/15 bg-cream px-4 text-forest placeholder:text-moss/40 transition-shadow duration-300 focus:border-forest focus:outline-none focus:ring-4 focus:ring-forest/15";
 
 export function RegisterForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [pending, setPending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSuccess(false);
 
     if (name.trim().length === 0) {
       setError("Informe seu nome completo.");
@@ -46,7 +49,25 @@ export function RegisterForm() {
     }
 
     setError(null);
-    setSuccess(true);
+    setPending(true);
+
+    try {
+      const tokens = await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
+      setSession(tokens, true);
+      router.push("/painel");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Não foi possível criar a conta. Tente novamente.",
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   const linkClasses =
@@ -60,13 +81,6 @@ export function RegisterForm() {
           className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm leading-relaxed text-destructive"
         >
           {error}
-        </p>
-      ) : null}
-
-      {success ? (
-        <p className="mb-5 rounded-xl border border-sage bg-sage/30 px-4 py-3 text-sm leading-relaxed text-forest">
-          Conta criada. Este é um preview visual — o backend ainda não está
-          conectado.
         </p>
       ) : null}
 
@@ -167,13 +181,23 @@ export function RegisterForm() {
 
       <button
         type="submit"
-        className="group mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-forest text-sm font-medium text-cream transition-all duration-300 hover:bg-forest/90 hover:shadow-lg hover:shadow-forest/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2 focus-visible:ring-offset-mist"
+        disabled={pending}
+        className="group mt-7 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-forest text-sm font-medium text-cream transition-all duration-300 hover:bg-forest/90 hover:shadow-lg hover:shadow-forest/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2 focus-visible:ring-offset-mist disabled:pointer-events-none disabled:opacity-60"
       >
-        Criar conta gratuita
-        <ArrowRight
-          className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
-          aria-hidden="true"
-        />
+        {pending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Criando conta...
+          </>
+        ) : (
+          <>
+            Criar conta gratuita
+            <ArrowRight
+              className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1"
+              aria-hidden="true"
+            />
+          </>
+        )}
       </button>
 
       <p className="mt-7 text-center text-sm text-moss">

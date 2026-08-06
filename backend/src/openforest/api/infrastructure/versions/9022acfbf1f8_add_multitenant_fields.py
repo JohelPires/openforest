@@ -25,11 +25,11 @@ def upgrade() -> None:
     )
     op.add_column(
         'organization',
-        sa.Column('created_by', sa.Uuid(), nullable=True),
+        sa.Column('created_by', sa.Uuid(), sa.ForeignKey('user.id'), nullable=True),
     )
     op.add_column(
         'project',
-        sa.Column('created_by', sa.Uuid(), nullable=True),
+        sa.Column('created_by', sa.Uuid(), sa.ForeignKey('user.id'), nullable=True),
     )
 
 

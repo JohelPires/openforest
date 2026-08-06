@@ -2,10 +2,11 @@ from urllib.parse import urlparse, urlunparse
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from openforest.api.config import settings
 from openforest.api.infrastructure.database import get_session
+from openforest.api.models.user import User
 
 parsed = urlparse(settings.database_url)
 test_db_url = urlunparse(parsed._replace(path="/openforest_test"))
@@ -71,6 +72,16 @@ def test_register_user(client: TestClient) -> None:
     assert "access_token" in data
     assert "refresh_token" in data
     assert data["token_type"] == "bearer"
+
+
+def test_register_user_not_superuser(client: TestClient, session: Session) -> None:
+    client.post(
+        "/api/v1/auth/register",
+        json={"name": "Comum", "email": "comum@test.com", "password": "123456"},
+    )
+    user = session.exec(select(User).where(User.email == "comum@test.com")).first()
+    assert user is not None
+    assert user.is_superuser is False
 
 
 def test_register_duplicate_email(client: TestClient, auth_headers: dict) -> None:

@@ -9,3 +9,4 @@ class User(Base, table=True):
     name: str = Field(nullable=False)
     email: str = Field(nullable=False, unique=True, index=True)
     password_hash: str = Field(nullable=False)
+    is_superuser: bool = Field(default=False)

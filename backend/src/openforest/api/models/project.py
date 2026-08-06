@@ -17,3 +17,4 @@ class Project(Base, table=True):
     goal: str | None = Field(default=None)
     start_date: date | None = Field(default=None)
     responsible: str | None = Field(default=None)
+    created_by: UUID | None = Field(default=None, foreign_key="user.id")

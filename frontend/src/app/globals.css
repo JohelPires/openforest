@@ -163,6 +163,47 @@
   animation-delay: 2.3s;
 }
 
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(196, 167, 108, 0.5);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 5px rgba(196, 167, 108, 0);
+  }
+}
+
+.live-dot {
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes value-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.value-in {
+  opacity: 0;
+  animation: value-in 0.5s ease-out forwards;
+}
+
+.ruled-lines {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 26px,
+    rgba(196, 167, 108, 0.35) 26px,
+    rgba(196, 167, 108, 0.35) 27px
+  );
+}
+
 @keyframes mesh-shift {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
@@ -176,6 +217,21 @@
   100% {
     transform: translate3d(1%, 1%, 0) scale(1.02);
   }
+}
+
+.instrument-face {
+  background:
+    radial-gradient(
+      90% 140% at 10% 0%,
+      rgba(181, 201, 176, 0.1) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      80% 140% at 92% 100%,
+      rgba(196, 167, 108, 0.1) 0%,
+      transparent 55%
+    ),
+    linear-gradient(180deg, #14241c 0%, var(--soil) 100%);
 }
 
 .hero-mesh {
@@ -202,6 +258,13 @@
 @media (prefers-reduced-motion: reduce) {
   .hero-mesh,
   .soil-gradient {
+    animation: none;
+  }
+  .live-dot {
+    animation: none;
+  }
+  .value-in {
+    opacity: 1;
     animation: none;
   }
   .root-path,

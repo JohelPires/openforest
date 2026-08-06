@@ -8,27 +8,41 @@ from openforest.api.models.project import Project
 from openforest.api.schemas.project import ProjectCreate, ProjectUpdate
 
 
-def create_project(session: Session, data: ProjectCreate) -> Project:
-    organization = session.get(Organization, data.organization_id)
+def create_project(
+    session: Session,
+    organization_id: UUID,
+    data: ProjectCreate,
+    created_by: UUID | None,
+) -> Project:
+    organization = session.get(Organization, organization_id)
     if not organization:
         raise HTTPException(
             status_code=422,
             detail=[
                 {
-                    "msg": f"Organização com ID '{data.organization_id}' não encontrada",
+                    "msg": f"Organização com ID '{organization_id}' não encontrada",
                     "type": "not_found",
                 }
             ],
         )
-    project = Project(**data.model_dump())
+    project = Project(
+        **data.model_dump(exclude={"organization_id"}),
+        organization_id=organization_id,
+        created_by=created_by,
+    )
     session.add(project)
     session.commit()
     session.refresh(project)
     return project
 
 
-def get_project(session: Session, project_id: UUID) -> Project | None:
-    return session.get(Project, project_id)
+def get_project(
+    session: Session, project_id: UUID, organization_id: UUID | None = None
+) -> Project | None:
+    stmt = select(Project).where(Project.id == project_id)
+    if organization_id is not None:
+        stmt = stmt.where(Project.organization_id == organization_id)
+    return session.exec(stmt).first()
 
 
 def list_projects(
@@ -36,7 +50,7 @@ def list_projects(
 ) -> tuple[list[Project], int]:
     count_stmt = select(func.count()).select_from(Project)
     stmt = select(Project).order_by("created_at", "id")
-    if organization_id:
+    if organization_id is not None:
         count_stmt = count_stmt.where(Project.organization_id == organization_id)
         stmt = stmt.where(Project.organization_id == organization_id)
     total = session.exec(count_stmt).one()

@@ -166,9 +166,11 @@ def test_protected_endpoint_invalid_token(client: TestClient) -> None:
     assert response.status_code == 401
 
 
-def test_protected_endpoint_valid_token(client: TestClient, auth_headers: dict) -> None:
+def test_protected_endpoint_user_without_org_forbidden(
+    client: TestClient, auth_headers: dict
+) -> None:
     response = client.get("/api/v1/projects", headers=auth_headers)
-    assert response.status_code == 200
+    assert response.status_code == 403
 
 
 def test_health_public(client: TestClient) -> None:

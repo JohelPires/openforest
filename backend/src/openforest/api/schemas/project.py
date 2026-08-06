@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 
 
 class ProjectCreate(SQLModel):
-    organization_id: UUID
+    organization_id: UUID | None = None
     name: str
     description: str | None = None
     goal: str | None = None

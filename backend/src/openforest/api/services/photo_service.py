@@ -3,8 +3,10 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.photo import Photo
+from openforest.api.models.project import Project
 from openforest.api.schemas.photo import PhotoCreate
 
 
@@ -27,8 +29,19 @@ def create_photo(session: Session, monitoring_id: UUID, data: PhotoCreate, file_
     return photo
 
 
-def get_photo(session: Session, photo_id: UUID) -> Photo | None:
-    return session.get(Photo, photo_id)
+def get_photo(
+    session: Session, photo_id: UUID, organization_id: UUID | None = None
+) -> Photo | None:
+    stmt = (
+        select(Photo)
+        .join(Monitoring)
+        .join(Area)
+        .join(Project)
+        .where(Photo.id == photo_id)
+    )
+    if organization_id is not None:
+        stmt = stmt.where(Project.organization_id == organization_id)
+    return session.exec(stmt).first()
 
 
 def list_photos(session: Session, monitoring_id: UUID) -> list[Photo]:

@@ -120,9 +120,9 @@ def other_user(session):
 
 
 @pytest.fixture
-def admin_membership(session, user, organization):
+def manager_membership(session, user, organization):
     membership = UserOrganization(
-        user_id=user.id, organization_id=organization.id, role=UserOrganizationRole.admin
+        user_id=user.id, organization_id=organization.id, role=UserOrganizationRole.manager
     )
     session.add(membership)
     session.commit()
@@ -130,7 +130,7 @@ def admin_membership(session, user, organization):
 
 
 @pytest.fixture
-def auth_headers(client, user):
+def auth_headers(client, manager_membership):
     response = client.post(
         "/api/v1/auth/login",
         json={"email": "test@test.com", "password": "secret123"},
@@ -143,7 +143,7 @@ def test_upload_photo(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     response = client.post(
         f"/api/v1/monitorings/{monitoring.id}/photos",
@@ -198,7 +198,7 @@ def test_upload_photo_not_image(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     response = client.post(
         f"/api/v1/monitorings/{monitoring.id}/photos",
@@ -213,7 +213,7 @@ def test_upload_photo_too_large(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     original_limit = settings.max_upload_size_mb
     settings.max_upload_size_mb = 0
@@ -233,7 +233,7 @@ def test_get_photo(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     upload_resp = client.post(
         f"/api/v1/monitorings/{monitoring.id}/photos",
@@ -256,7 +256,7 @@ def test_download_photo(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     upload_resp = client.post(
         f"/api/v1/monitorings/{monitoring.id}/photos",
@@ -276,7 +276,7 @@ def test_delete_photo(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
 ) -> None:
     upload_resp = client.post(
         f"/api/v1/monitorings/{monitoring.id}/photos",
@@ -298,7 +298,7 @@ def test_delete_photo_forbidden(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
-    admin_membership: UserOrganization,
+    manager_membership: UserOrganization,
     other_user: User,
 ) -> None:
     upload_resp = client.post(
@@ -316,3 +316,172 @@ def test_delete_photo_forbidden(
 
     response = client.delete(f"/api/v1/photos/{photo_id}", headers=headers)
     assert response.status_code == 403
+
+
+def test_volunteer_can_upload_photo(
+    client: TestClient,
+    monitoring: Monitoring,
+    organization: Organization,
+    session: Session,
+) -> None:
+    volunteer = User(
+        name="Volunteer", email="volphoto@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(volunteer)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=volunteer.id, organization_id=organization.id,
+            role=UserOrganizationRole.volunteer,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "volphoto@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+
+def test_viewer_cannot_upload_photo(
+    client: TestClient,
+    monitoring: Monitoring,
+    organization: Organization,
+    session: Session,
+) -> None:
+    viewer = User(
+        name="Viewer", email="viewerphoto@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(viewer)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=viewer.id, organization_id=organization.id,
+            role=UserOrganizationRole.viewer,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "viewerphoto@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=headers,
+    )
+    assert response.status_code == 403
+
+
+def test_volunteer_cannot_delete_photo(
+    client: TestClient,
+    monitoring: Monitoring,
+    organization: Organization,
+    session: Session,
+    auth_headers: dict,
+) -> None:
+    upload_resp = client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=auth_headers,
+    )
+    photo_id = upload_resp.json()["id"]
+
+    volunteer = User(
+        name="Volunteer 2", email="volphoto2@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(volunteer)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=volunteer.id, organization_id=organization.id,
+            role=UserOrganizationRole.volunteer,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "volphoto2@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.delete(f"/api/v1/photos/{photo_id}", headers=headers)
+    assert response.status_code == 403
+
+
+def test_researcher_can_delete_photo(
+    client: TestClient,
+    monitoring: Monitoring,
+    organization: Organization,
+    session: Session,
+    auth_headers: dict,
+) -> None:
+    upload_resp = client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=auth_headers,
+    )
+    photo_id = upload_resp.json()["id"]
+
+    researcher = User(
+        name="Researcher", email="resphoto@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(researcher)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=researcher.id, organization_id=organization.id,
+            role=UserOrganizationRole.researcher,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "resphoto@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.delete(f"/api/v1/photos/{photo_id}", headers=headers)
+    assert response.status_code == 200
+
+
+def test_user_cannot_read_other_org_photo(
+    client: TestClient,
+    monitoring: Monitoring,
+    organization: Organization,
+    session: Session,
+    auth_headers: dict,
+) -> None:
+    upload_resp = client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=auth_headers,
+    )
+    photo_id = upload_resp.json()["id"]
+
+    other_org = Organization(name="Outra ONG", slug="outra-ong-photo")
+    other_user = User(
+        name="Other", email="otherphoto@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(other_org)
+    session.add(other_user)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=other_user.id, organization_id=other_org.id,
+            role=UserOrganizationRole.manager,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "otherphoto@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.get(f"/api/v1/photos/{photo_id}", headers=headers)
+    assert response.status_code == 404

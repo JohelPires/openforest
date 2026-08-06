@@ -4,12 +4,13 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from openforest.api.config import settings
-from openforest.api.dependencies.auth import CurrentUserDep
-from openforest.api.dependencies.permissions import check_area_write_permission
+from openforest.api.dependencies.auth import CurrentOrgDep, CurrentUserDep
+from openforest.api.dependencies.permissions import check_area_role
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.infrastructure.storage import delete_file, read_file, save_upload
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.photo import Photo
+from openforest.api.models.user_organization import UserOrganizationRole
 from openforest.api.schemas.photo import PhotoCreate, PhotoRead
 from openforest.api.services.photo_service import create_photo, delete_photo, get_photo
 
@@ -18,7 +19,11 @@ router = APIRouter(tags=["fotos"])
 
 @router.post("/monitorings/{monitoring_id}/photos", response_model=PhotoRead)
 def upload_photo_route(
-    session: SessionDep, current_user: CurrentUserDep, monitoring_id: UUID, file: UploadFile
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    current_org: CurrentOrgDep,
+    monitoring_id: UUID,
+    file: UploadFile,
 ) -> Photo:
     monitoring = session.get(Monitoring, monitoring_id)
     if not monitoring:
@@ -31,7 +36,15 @@ def upload_photo_route(
                 }
             ],
         )
-    check_area_write_permission(session, current_user, monitoring.area_id)
+    check_area_role(
+        session,
+        current_user,
+        current_org,
+        monitoring.area_id,
+        UserOrganizationRole.manager,
+        UserOrganizationRole.researcher,
+        UserOrganizationRole.volunteer,
+    )
 
     if file.content_type and not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -70,9 +83,13 @@ def upload_photo_route(
 
 @router.get("/photos/{photo_id}", response_model=PhotoRead)
 def get_photo_route(
-    session: SessionDep, current_user: CurrentUserDep, photo_id: UUID
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    current_org: CurrentOrgDep,
+    photo_id: UUID,
 ) -> Photo | None:
-    photo = get_photo(session, photo_id)
+    organization_id = current_org.organization_id if current_org else None
+    photo = get_photo(session, photo_id, organization_id)
     if not photo:
         raise HTTPException(
             status_code=404,
@@ -83,9 +100,13 @@ def get_photo_route(
 
 @router.get("/photos/{photo_id}/download")
 def download_photo_route(
-    session: SessionDep, current_user: CurrentUserDep, photo_id: UUID
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    current_org: CurrentOrgDep,
+    photo_id: UUID,
 ) -> Response:
-    photo = get_photo(session, photo_id)
+    organization_id = current_org.organization_id if current_org else None
+    photo = get_photo(session, photo_id, organization_id)
     if not photo:
         raise HTTPException(
             status_code=404,
@@ -104,9 +125,13 @@ def download_photo_route(
 
 @router.delete("/photos/{photo_id}")
 def delete_photo_route(
-    session: SessionDep, current_user: CurrentUserDep, photo_id: UUID
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    current_org: CurrentOrgDep,
+    photo_id: UUID,
 ) -> dict[str, str]:
-    photo = get_photo(session, photo_id)
+    organization_id = current_org.organization_id if current_org else None
+    photo = get_photo(session, photo_id, organization_id)
     if not photo:
         raise HTTPException(
             status_code=404,
@@ -114,7 +139,14 @@ def delete_photo_route(
         )
     monitoring = session.get(Monitoring, photo.monitoring_id)
     if monitoring:
-        check_area_write_permission(session, current_user, monitoring.area_id)
+        check_area_role(
+            session,
+            current_user,
+            current_org,
+            monitoring.area_id,
+            UserOrganizationRole.manager,
+            UserOrganizationRole.researcher,
+        )
     deleted = delete_photo(session, photo_id)
     if deleted:
         delete_file(deleted.file_path)

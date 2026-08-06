@@ -48,11 +48,6 @@ export interface SensorSeries {
   trend: number[];
 }
 
-export const ORGANIZATION = {
-  name: "Instituto Folha Verde",
-  slug: "folha-verde",
-};
-
 export const AREAS: Area[] = [
   {
     id: "area-borrazois",

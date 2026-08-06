@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, apiFetch, login, logout } from "@/lib/api";
+import { ApiError, apiFetch, login, logout, me } from "@/lib/api";
 import { clearSession, setSession } from "@/lib/auth";
 
 describe("api client", () => {
@@ -151,8 +151,34 @@ describe("api client", () => {
     );
   });
 
-  it("chama logout com o refresh token", async () => {
+  it("busca o usuário atual em /auth/me com autorização", async () => {
+    setSession(
+      { access_token: "abc", refresh_token: "def", token_type: "bearer" },
+      true,
+    );
+    const user = {
+      id: "user-1",
+      name: "Ana Souza",
+      email: "ana@folha-verde.org",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      organization: { id: "org-1", name: "Instituto Folha Verde", role: "manager" },
+    };
     vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(user), { status: 200 })),
+    );
+
+    await expect(me()).resolves.toEqual(user);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/auth/me");
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+
+  it("chama logout com o refresh token", async () => {    vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ msg: "Logout realizado com sucesso" }), {

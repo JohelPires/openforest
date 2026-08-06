@@ -1,3 +1,5 @@
+import { clearCachedUser } from "@/lib/user";
+
 const ACCESS_KEY = "openforest_access_token";
 const REFRESH_KEY = "openforest_refresh_token";
 const REMEMBER_KEY = "openforest_remember";
@@ -67,6 +69,7 @@ export function clearSession(): void {
     localStorage.removeItem(REFRESH_KEY);
     sessionStorage.removeItem(ACCESS_KEY);
     sessionStorage.removeItem(REFRESH_KEY);
+    clearCachedUser();
   }
   clearSessionCookie();
 }

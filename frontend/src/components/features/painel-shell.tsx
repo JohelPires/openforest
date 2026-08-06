@@ -4,9 +4,13 @@ import { useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, Search, X } from "lucide-react";
 import { Dialog } from "@base-ui/react/dialog";
-import { ORGANIZATION } from "@/lib/mock-data";
 import { Sidebar } from "@/components/features/sidebar";
 import { RegistrationDialog } from "@/components/features/registration-dialog";
+import { UserMenu } from "@/components/features/user-menu";
+import {
+  UserProvider,
+  useUser,
+} from "@/components/features/user-provider";
 
 const SECTION_LABELS: Record<string, string> = {
   projetos: "Projetos",
@@ -27,8 +31,9 @@ interface PainelShellProps {
   children: ReactNode;
 }
 
-export function PainelShell({ children }: PainelShellProps) {
+function ShellInner({ children }: PainelShellProps) {
   const pathname = usePathname();
+  const { organization } = useUser();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
@@ -64,12 +69,16 @@ export function PainelShell({ children }: PainelShellProps) {
                 <Menu className="h-4 w-4" aria-hidden="true" />
               </button>
               <nav aria-label="Trilha de navegação" className="flex min-w-0 items-center gap-2 text-sm">
-                <span className="hidden truncate text-moss/70 sm:inline">
-                  {ORGANIZATION.name}
-                </span>
-                <span className="hidden text-moss/40 sm:inline" aria-hidden="true">
-                  /
-                </span>
+                {organization ? (
+                  <>
+                    <span className="hidden truncate text-moss/70 sm:inline">
+                      {organization.name}
+                    </span>
+                    <span className="hidden text-moss/40 sm:inline" aria-hidden="true">
+                      /
+                    </span>
+                  </>
+                ) : null}
                 <span className="truncate font-medium text-forest">
                   {sectionLabel(pathname)}
                 </span>
@@ -93,6 +102,7 @@ export function PainelShell({ children }: PainelShellProps) {
                 />
               </form>
               <RegistrationDialog />
+              <UserMenu />
             </div>
           </div>
         </header>
@@ -102,5 +112,13 @@ export function PainelShell({ children }: PainelShellProps) {
         </main>
       </div>
     </div>
+  );
+}
+
+export function PainelShell({ children }: PainelShellProps) {
+  return (
+    <UserProvider>
+      <ShellInner>{children}</ShellInner>
+    </UserProvider>
   );
 }

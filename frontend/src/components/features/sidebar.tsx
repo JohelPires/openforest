@@ -1,23 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Activity,
   ClipboardList,
   FolderTree,
   Images,
   LayoutDashboard,
-  Loader2,
-  LogOut,
   Map,
   Settings,
   Sprout,
 } from "lucide-react";
-import { useState } from "react";
-import { logout } from "@/lib/api";
-import { clearSession, getRefreshToken } from "@/lib/auth";
-import { ORGANIZATION } from "@/lib/mock-data";
+import { useUser } from "@/components/features/user-provider";
+import { initialsOf, ROLE_LABEL } from "@/lib/user";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -37,35 +33,22 @@ const ARCHIVE_NAV = [
   { href: "/painel/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-const initials = ORGANIZATION.name
-  .split(" ")
-  .slice(0, 2)
-  .map((word) => word[0])
-  .join("");
-
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [pending, setPending] = useState(false);
+  const { organization, user } = useUser();
 
   function isActive(href: string): boolean {
     if (href === "/painel") return pathname === "/painel";
     return pathname.startsWith(href);
   }
 
-  async function handleLogout() {
-    const refreshToken = getRefreshToken();
-    setPending(true);
-    if (refreshToken) {
-      try {
-        await logout(refreshToken);
-      } catch {
-        // best-effort: segue para o logout local mesmo se a API falhar
-      }
-    }
-    clearSession();
-    router.replace("/auth/login");
-  }
+  const workspaceName = organization?.name ?? user?.name;
+  const workspaceInitials = workspaceName ? initialsOf(workspaceName) : "?";
+  const workspaceMeta = organization
+    ? ROLE_LABEL[organization.role]
+    : user
+      ? "Conta"
+      : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -162,30 +145,19 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             aria-hidden="true"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-forest font-mono text-xs font-medium text-cream"
           >
-            {initials}
+            {workspaceInitials}
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-forest">
-              {ORGANIZATION.name}
+              {workspaceName ?? "Conta"}
             </p>
-            <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-moss/70">
-              Monitoramento
-            </p>
+            {workspaceMeta ? (
+              <p className="truncate font-mono text-[10px] uppercase tracking-[0.14em] text-moss/70">
+                {workspaceMeta}
+              </p>
+            ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          disabled={pending}
-          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-forest/10 bg-forest/5 px-3 py-2 text-sm font-medium text-forest transition-colors hover:border-forest/25 hover:bg-forest/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:pointer-events-none disabled:opacity-60"
-        >
-          {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-          )}
-          Sair da conta
-        </button>
       </div>
     </div>
   );

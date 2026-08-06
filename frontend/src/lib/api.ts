@@ -144,3 +144,29 @@ export function logout(refreshToken: string): Promise<{ msg?: string }> {
     body: { refresh_token: refreshToken },
   });
 }
+
+export type UserRole =
+  | "admin"
+  | "manager"
+  | "researcher"
+  | "volunteer"
+  | "viewer";
+
+export interface MeOrganization {
+  id: string;
+  name: string;
+  role: UserRole;
+}
+
+export interface MeRead {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+  organization: MeOrganization | null;
+}
+
+export function me(): Promise<MeRead> {
+  return apiFetch<MeRead>("/auth/me", { auth: true });
+}

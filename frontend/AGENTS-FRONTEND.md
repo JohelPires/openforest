@@ -18,7 +18,7 @@ OpenForest é uma plataforma open source para monitoramento colaborativo de proj
 
 | Camada           | Tecnologia                               |
 |------------------|------------------------------------------|
-| Framework        | Next.js 15 (App Router)                  |
+| Framework        | Next.js 16 (App Router)                  |
 | UI Library       | React 19                                 |
 | Linguagem        | TypeScript (strict mode)                 |
 | Estilização      | TailwindCSS                              |
@@ -48,7 +48,7 @@ frontend/
 │   │   ├── api.ts              # Cliente HTTP para o backend
 │   │   └── utils.ts            # Funções auxiliares
 │   ├── types/                  # Tipos TypeScript compartilhados
-│   └── middleware.ts            # Next.js middleware (auth, redirect)
+│   └── proxy.ts                 # Next.js proxy (auth, redirect) — antigo middleware
 ├── public/                     # Assets estáticos
 ├── tests/                      # Testes
 │   ├── components/
@@ -196,53 +196,86 @@ import { Button } from "@/components/ui/Button";
 
 ### Base URL
 
-- Desenvolvimento: `http://localhost:8000`
-- Produção: definido via `NEXT_PUBLIC_API_URL`
+- Backend: `http://localhost:8000` — todas as rotas sob `/api/v1`.
+- O `next.config.ts` faz rewrite de `/api/:path*` → `${BACKEND_URL}/api/:path*`, então chamadas do browser usam **caminhos relativos** (`/api/v1/...`) — mesmo domínio, sem CORS.
+- Ajuste em produção via `BACKEND_URL` (server-side, usada pelo rewrite).
 
-### Client Example
+### API client (`src/lib/api.ts`)
 
 ```typescript
-// src/lib/api.ts
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
-
-async function request<T>(
-  path: string,
-  options?: RequestInit,
-): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
-}
-
-export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
-  put: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
-  delete: <T>(path: string) =>
-    request<T>(path, { method: "DELETE" }),
-};
+// Chamadas do browser usam caminhos relativos (rewrite do next.config.ts)
+apiFetch<T>("/v1/...") // -> /api/v1/...
 ```
+
+- `apiFetch<T>(path, { method, body, auth })` — `auth: true` adiciona `Authorization: Bearer <access_token>`.
+- Erros do backend (`{detail:[{msg,type}]}`) normalizados em `ApiError { status, type, message }` com a mensagem em português.
+- Em `401` com refresh token válido, tenta `POST /auth/refresh` e repete a requisição uma vez (evita loop).
+- Funções exportadas: `login`, `register`, `refreshTokens`, `logout`.
+
+### Autenticação (frontend)
+
+- Tokens JWT armazenados no cliente: `localStorage` quando "Lembrar de mim" marcado, senão `sessionStorage`.
+- Access token: 15 min. Refresh token: 7 dias.
+- `POST /auth/refresh` rotaciona os tokens (mesma storage de origem).
+- `POST /auth/logout` com o refresh token blacklista o refresh no backend.
+- `src/lib/auth.ts` gerencia a sessão e um cookie marcador `of_session` (`path=/; samesite=lax`), usado pelo `proxy.ts` para guarda otimista de rotas.
+- Guarda de rotas em `src/proxy.ts` (o Next.js 16 renomeou `middleware.ts` para `proxy.ts`). A guarda é **otimista** — a segurança real fica no backend validando o JWT por requisição.
+
+## Backend API Reference
+
+Fonte: `/openapi.json` do backend (FastAPI). Base: `http://localhost:8000/api/v1`.
 
 ### Autenticação
 
-- Token JWT armazenado em cookie HTTP-only (via backend)
-- Ou header `Authorization: Bearer <token>` para chamadas client-side
-- Middleware Next.js para redirecionar rotas protegidas
+| Método | Rota                    | Body                        | Retorno                                        |
+|--------|-------------------------|-----------------------------|------------------------------------------------|
+| POST   | `/auth/register`        | `{name, email, password}`   | `{access_token, refresh_token, token_type}`    |
+| POST   | `/auth/login`           | `{email, password}`         | `{access_token, refresh_token, token_type}`    |
+| POST   | `/auth/refresh`         | `{refresh_token}`           | `{access_token, refresh_token, token_type}`    |
+| POST   | `/auth/logout`          | `{refresh_token}`           | `{msg}`                                        |
+
+- Register/login/refresh retornam tokens (register já loga o usuário).
+- Erros conhecidos: `duplicate_email` (409), `invalid_credentials` (401), `token_expired`/`invalid_token` (401).
+
+### Endpoints protegidos (exigem `Authorization: Bearer <access_token>`)
+
+| Método | Rota                                   | Observação                        |
+|--------|----------------------------------------|-----------------------------------|
+| GET/POST | `/projects/` (com barra final)        | Lista paginada / cria             |
+| GET/PATCH/DELETE | `/projects/{project_id}`       | CRUD                              |
+| GET/POST | `/organizations/` (com barra final)   | Lista paginada / cria             |
+| GET/PATCH/DELETE | `/organizations/{organization_id}` | CRUD                          |
+| GET/POST | `/projects/{project_id}/areas`        | Áreas de um projeto               |
+| GET/PATCH/DELETE | `/areas/{area_id}`              | CRUD                              |
+| GET/POST | `/areas/{area_id}/monitorings`        | Monitoramentos de uma área        |
+| GET/PATCH/DELETE | `/monitorings/{monitoring_id}`  | CRUD                              |
+| POST   | `/monitorings/{monitoring_id}/photos` | Upload multipart (`file`)         |
+| GET/DELETE | `/photos/{photo_id}`              | Detalhe / remover                 |
+| GET    | `/photos/{photo_id}/download`          | Download                          |
+| GET    | `/health`                              | Sem auth                          |
+
+- Listas paginadas usam `{items, total, offset, limit}` (query `offset`/`limit`, máximo 100).
+- Consultas por id usam UUID.
+
+### Formatos
+
+```json
+// Erro de negócio
+{ "detail": [{ "msg": "Email já cadastrado", "type": "duplicate_email" }] }
+
+// Erro de validação (FastAPI 422)
+{ "detail": [{ "loc": ["body", "email"], "msg": "Field required", "type": "missing" }] }
+```
 
 ## Environment Variables
 
 ```
 # .env.local
-NEXT_PUBLIC_API_URL=http://localhost:8000/api
+BACKEND_URL=http://localhost:8000
 ```
+
+- `BACKEND_URL` é lida pelo `next.config.ts` (rewrite `/api/:path*`). Não é exposta ao browser.
+- O cliente nunca usa URL absoluta do backend — sempre caminhos relativos `/api/v1/...`.
 
 ## Testing
 

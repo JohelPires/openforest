@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CalendarDays, RefreshCw, User } from "lucide-react";
 import { apiFetch, type ProjectRead } from "@/lib/api";
+import { useBreadcrumb } from "@/components/features/painel-breadcrumb";
+import { ProjectAreas } from "@/components/features/project-areas";
 
 function formatDate(value?: string | null): string | null {
   if (!value) return null;
@@ -25,6 +27,8 @@ export default function ProjectDetailPage() {
     queryFn: () =>
       apiFetch<ProjectRead>(`/projects/${params.id}`, { auth: true }),
   });
+
+  useBreadcrumb(data ? ["Projetos", data.name] : ["Projetos"]);
 
   if (isPending) {
     return (
@@ -134,9 +138,7 @@ export default function ProjectDetailPage() {
         ) : null}
       </dl>
 
-      <p className="rounded-2xl border border-dashed border-forest/20 bg-cream/60 px-5 py-4 text-sm leading-relaxed text-moss">
-        A página de detalhe com áreas e métricas do projeto está em construção.
-      </p>
+      <ProjectAreas projectId={params.id} />
     </div>
   );
 }

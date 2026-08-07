@@ -3,14 +3,35 @@
 import { useQuery } from "@tanstack/react-query";
 import { Map } from "lucide-react";
 import { AreaTimeline } from "@/components/features/area-timeline";
-import { projectAreas, type AreaRead } from "@/lib/api";
-import type { Area } from "@/lib/mock-data";
+import { projectAreas, type AreaRead, type MonitoringRead } from "@/lib/api";
+import type { Area, Monitoring } from "@/lib/mock-data";
 
 interface ProjectAreasProps {
   projectId: string;
 }
 
+function toTimelineMonitoring(monitoring: MonitoringRead): Monitoring {
+  return {
+    id: monitoring.id,
+    visit_date: monitoring.visit_date,
+    author: "",
+    notes: monitoring.notes ?? "",
+    seedling_count: monitoring.seedling_count ?? 0,
+    avg_height: monitoring.avg_height ?? 0,
+    species_data: monitoring.species_data ?? null,
+    photos: [],
+    created_at: monitoring.created_at,
+    updated_at: monitoring.updated_at,
+  };
+}
+
 function toTimelineArea(area: AreaRead): Area {
+  const monitorings = (area.recent_monitorings ?? [])
+    .map(toTimelineMonitoring)
+    .sort((a, b) => {
+      const byDate = a.visit_date.localeCompare(b.visit_date);
+      return byDate !== 0 ? byDate : (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    });
   return {
     id: area.id,
     project_id: area.project_id,
@@ -23,7 +44,7 @@ function toTimelineArea(area: AreaRead): Area {
     started_at: area.created_at.slice(0, 10),
     seedlings: 0,
     survival_rate: 0,
-    monitorings: [],
+    monitorings,
     created_at: area.created_at,
     updated_at: area.updated_at,
   };

@@ -193,6 +193,18 @@ export type RestorationStatus =
   | "completed"
   | "cancelled";
 
+export interface MonitoringRead {
+  id: string;
+  area_id: string;
+  visit_date: string;
+  notes?: string | null;
+  seedling_count?: number | null;
+  avg_height?: number | null;
+  species_data?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AreaRead {
   id: string;
   project_id: string;
@@ -201,6 +213,7 @@ export interface AreaRead {
   biome?: string | null;
   coordinates?: Record<string, unknown> | null;
   restoration_status: RestorationStatus;
+  recent_monitorings?: MonitoringRead[];
   created_at: string;
   updated_at: string;
 }

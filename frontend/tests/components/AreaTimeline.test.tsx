@@ -69,4 +69,52 @@ describe("AreaTimeline", () => {
     await user.click(screen.getByRole("button", { name: /1 visita registrada/ }));
     expect(screen.getByText(/Plantio de 980 mudas concluído/i)).toBeInTheDocument();
   });
+
+  it("plota os pontos quando o started_at é mais recente que as visitas", () => {
+    render(
+      <AreaTimeline
+        areas={[
+          {
+            id: "area-rec",
+            project_id: "proj-restauracao-norte",
+            name: "Recente",
+            biome: "Mata Atlântica",
+            size_hectares: 42,
+            restoration_status: "active",
+            started_at: "2026-01-01",
+            goal: null,
+            seedlings: 1000,
+            survival_rate: 90,
+            monitorings: [
+              {
+                id: "mon-antigo",
+                visit_date: "2025-06-20",
+                author: "",
+                notes: "Visita antiga.",
+                seedling_count: 100,
+                avg_height: 0.5,
+                species_data: null,
+                photos: [],
+              },
+              {
+                id: "mon-novo",
+                visit_date: "2026-06-20",
+                author: "",
+                notes: "Visita recente.",
+                seedling_count: 100,
+                avg_height: 1.2,
+                species_data: null,
+                photos: [],
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    const dots = screen.getAllByRole("button", { name: /visita de/i });
+    expect(dots).toHaveLength(2);
+    const positions = dots.map((dot) => Number.parseFloat(dot.style.left));
+    expect(Math.max(...positions)).toBeGreaterThan(0);
+  });
 });

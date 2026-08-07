@@ -81,7 +81,9 @@ function MonitoringList({ area }: { area: Area }) {
               <span className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-gold">
                 {fullDate(monitoring.visit_date)}
               </span>
-              <span className="text-xs text-moss/70">· {monitoring.author}</span>
+              {monitoring.author ? (
+                <span className="text-xs text-moss/70">· {monitoring.author}</span>
+              ) : null}
             </div>
             <p className="mt-1.5 text-sm leading-relaxed text-moss">
               {monitoring.notes}
@@ -258,7 +260,10 @@ export function AreaTimeline({
   const time = useMemo(() => {
     if (areas.length === 0) return null;
     const nowMs = currentMs();
-    const startMs = Math.min(...areas.map((area) => toMs(area.started_at)));
+    const startMs = Math.min(
+      ...areas.map((area) => toMs(area.started_at)),
+      ...areas.flatMap((area) => area.monitorings.map((m) => toMs(m.visit_date))),
+    );
     const spanMs = Math.max(nowMs - startMs, DAY_MS);
     const pct = (ms: number): number => {
       const value = Math.min(100, Math.max(0, ((ms - startMs) / spanMs) * 100));

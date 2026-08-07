@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, ClipboardList, FolderTree, Images, LayoutDashboard, Map, Settings, Sprout } from 'lucide-react'
+import { FolderTree, Images, LayoutDashboard, Settings, Sprout } from 'lucide-react'
 import { useUser } from '@/components/features/user-provider'
 import { initialsOf, ROLE_LABEL } from '@/lib/user'
 import { cn } from '@/lib/utils'
@@ -14,9 +14,6 @@ interface SidebarProps {
 const MONITORING_NAV = [
    { href: '/painel', label: 'Visão geral', icon: LayoutDashboard },
    { href: '/painel/projetos', label: 'Projetos', icon: FolderTree },
-   { href: '/painel/areas', label: 'Áreas', icon: Map },
-   { href: '/painel/monitoramentos', label: 'Monitoramentos', icon: ClipboardList },
-   { href: '/painel/sensores', label: 'Sensores', icon: Activity },
 ]
 
 const ARCHIVE_NAV = [

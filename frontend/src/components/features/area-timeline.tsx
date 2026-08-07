@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { AREAS, STATUS_LABEL, type Area, type Monitoring, type RestorationStatus } from "@/lib/mock-data";
+import {
+  STATUS_LABEL,
+  type Area,
+  type Monitoring,
+  type RestorationStatus,
+} from "@/lib/mock-data";
 import { Reveal } from "@/components/reveal";
 import { HorizonLine } from "@/components/features/horizon-line";
 import { PhotoThumb } from "@/components/features/photo-thumb";
@@ -14,28 +19,13 @@ function toMs(date: string): number {
   return new Date(`${date}T12:00:00`).getTime();
 }
 
-const NOW_MS = Date.now();
-const START_MS = Math.min(...AREAS.map((area) => toMs(area.started_at)));
-const SPAN_MS = Math.max(NOW_MS - START_MS, DAY_MS);
-
-function pct(ms: number): number {
-  const value = Math.min(100, Math.max(0, ((ms - START_MS) / SPAN_MS) * 100));
-  return Number(value.toFixed(3));
+function currentMs(): number {
+  return Date.now();
 }
 
 const MONTHS = [
-  "jan",
-  "fev",
-  "mar",
-  "abr",
-  "mai",
-  "jun",
-  "jul",
-  "ago",
-  "set",
-  "out",
-  "nov",
-  "dez",
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
 ];
 
 function shortDate(iso: string): string {
@@ -50,16 +40,6 @@ function fullDate(iso: string): string {
     year: "numeric",
   });
 }
-
-const YEAR_MARKS: { year: number; left: number }[] = (() => {
-  const first = new Date(START_MS).getFullYear();
-  const last = new Date(NOW_MS).getFullYear();
-  const marks: { year: number; left: number }[] = [];
-  for (let year = first; year <= last; year++) {
-    marks.push({ year, left: pct(new Date(year, 0, 1).getTime()) });
-  }
-  return marks;
-})();
 
 const STATUS_DOT: Record<RestorationStatus, string> = {
   plantio_recente: "border-gold bg-gold",
@@ -127,16 +107,15 @@ function MonitoringList({ area }: { area: Area }) {
   );
 }
 
-function Band({
-  area,
-  expanded,
-  onToggle,
-}: {
+interface BandProps {
   area: Area;
   expanded: boolean;
   onToggle: () => void;
-}) {
+  yearMarks: { year: number; left: number }[];
+  pct: (ms: number) => number;
+}
 
+function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
   return (
     <section className="rounded-2xl border border-forest/10 bg-cream p-6 shadow-sm shadow-forest/5 sm:p-8">
       <div className="md:grid md:grid-cols-[240px_1fr] md:gap-8">
@@ -167,7 +146,7 @@ function Band({
 
         <div className="mt-7 md:mt-0">
           <div className="relative h-16">
-            {YEAR_MARKS.filter((mark) => mark.left > 0.5 && mark.left < 99.5).map(
+            {yearMarks.filter((mark) => mark.left > 0.5 && mark.left < 99.5).map(
               (mark) => (
                 <span
                   key={mark.year}
@@ -255,14 +234,50 @@ function Band({
   );
 }
 
-export function StrataCore() {
+interface AreaTimelineProps {
+  areas: Area[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  className?: string;
+}
+
+export function AreaTimeline({
+  areas,
+  eyebrow = "Perfil de monitoramento",
+  title = "Suas áreas, ao longo do tempo",
+  description = "Cada faixa é uma área. Os pontos são visitas de monitoramento plotadas na mesma régua de tempo — veja o ritmo da recuperação lado a lado.",
+  className,
+}: AreaTimelineProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const time = useMemo(() => {
+    if (areas.length === 0) return null;
+    const nowMs = currentMs();
+    const startMs = Math.min(...areas.map((area) => toMs(area.started_at)));
+    const spanMs = Math.max(nowMs - startMs, DAY_MS);
+    const pct = (ms: number): number => {
+      const value = Math.min(100, Math.max(0, ((ms - startMs) / spanMs) * 100));
+      return Number(value.toFixed(3));
+    };
+    const yearMarks: { year: number; left: number }[] = [];
+    for (
+      let year = new Date(startMs).getFullYear();
+      year <= new Date(nowMs).getFullYear();
+      year++
+    ) {
+      yearMarks.push({ year, left: pct(new Date(year, 0, 1).getTime()) });
+    }
+    return { startMs, nowMs, pct, yearMarks };
+  }, [areas]);
 
   function toggleArea(id: string) {
     setExpandedId((current) => (current === id ? null : id));
   }
 
-  const latestMonitoring = AREAS.reduce<Monitoring | null>((latest, area) => {
+  if (!time) return null;
+
+  const latestMonitoring = areas.reduce<Monitoring | null>((latest, area) => {
     const areaLatest = area.monitorings[area.monitorings.length - 1];
     if (!areaLatest) return latest;
     if (!latest) return areaLatest;
@@ -270,22 +285,23 @@ export function StrataCore() {
   }, null);
 
   return (
-    <section aria-labelledby="strata-title" className="scroll-mt-24">
+    <section
+      aria-labelledby="strata-title"
+      className={cn("scroll-mt-24", className)}
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-xs font-medium uppercase tracking-[0.2em] text-gold">
-            Perfil de monitoramento
+            {eyebrow}
           </p>
           <h2
             id="strata-title"
             className="font-heading mt-3 text-2xl leading-[1.1] tracking-tight text-forest sm:text-3xl"
           >
-            Suas áreas, ao longo do tempo
+            {title}
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-moss">
-            Cada faixa é uma área. Os pontos são visitas de monitoramento
-            plotadas na mesma régua de tempo — veja o ritmo da recuperação
-            lado a lado.
+            {description}
           </p>
         </div>
 
@@ -317,7 +333,7 @@ export function StrataCore() {
       <div className="mt-8 hidden md:grid md:grid-cols-[240px_1fr] md:gap-8">
         <div />
         <div className="relative h-5">
-          {YEAR_MARKS.filter((mark) => mark.left > 2 && mark.left < 98).map(
+          {time.yearMarks.filter((mark) => mark.left > 2 && mark.left < 98).map(
             (mark) => (
               <div
                 key={mark.year}
@@ -341,15 +357,17 @@ export function StrataCore() {
       </div>
 
       <div className="mt-2 space-y-8">
-        {AREAS.map((area, index) => (
+        {areas.map((area, index) => (
           <Reveal key={area.id} delay={index * 80}>
             <div className="space-y-1.5">
               <Band
                 area={area}
                 expanded={expandedId === area.id}
                 onToggle={() => toggleArea(area.id)}
+                yearMarks={time.yearMarks}
+                pct={time.pct}
               />
-              {index < AREAS.length - 1 ? (
+              {index < areas.length - 1 ? (
                 <HorizonLine className="mx-1" />
               ) : null}
             </div>

@@ -1,8 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth";
 
+const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/api")) {
+    return NextResponse.rewrite(
+      new URL(`${pathname}${request.nextUrl.search}`, backendUrl),
+    );
+  }
+
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 
   if (pathname.startsWith("/painel") && !hasSession) {
@@ -17,5 +26,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/auth/:path*", "/painel/:path*"],
+  matcher: ["/auth/:path*", "/painel/:path*", "/api/:path*"],
 };

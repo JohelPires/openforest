@@ -197,8 +197,9 @@ import { Button } from '@/components/ui/Button'
 ### Base URL
 
 - Backend: `http://localhost:8000` — todas as rotas sob `/api/v1`.
-- O `next.config.ts` faz rewrite de `/api/:path*` → `${BACKEND_URL}/api/:path*`, então chamadas do browser usam **caminhos relativos** (`/api/v1/...`) — mesmo domínio, sem CORS.
-- Ajuste em produção via `BACKEND_URL` (server-side, usada pelo rewrite).
+- O `src/proxy.ts` reescreve `/api/:path*` → `${BACKEND_URL}/api/:path*` via `NextResponse.rewrite`, então chamadas do browser usam **caminhos relativos** (`/api/v1/...`) — mesmo domínio, sem CORS.
+- Ajuste em produção via `BACKEND_URL` (server-side, lida pelo proxy).
+- `next.config.ts` usa `skipTrailingSlashRedirect`/`skipProxyUrlNormalize` para o proxy preservar a barra final e a query string originais (evita redirects 308/307 que levariam o browser para o backend direto).
 
 ### API client (`src/lib/api.ts`)
 
@@ -274,7 +275,7 @@ Fonte da documentação do backend: http://localhost:8000/openapi.json
 BACKEND_URL=http://localhost:8000
 ```
 
-- `BACKEND_URL` é lida pelo `next.config.ts` (rewrite `/api/:path*`). Não é exposta ao browser.
+- `BACKEND_URL` é lida pelo `src/proxy.ts` (rewrite `/api/:path*`). Não é exposta ao browser.
 - O cliente nunca usa URL absoluta do backend — sempre caminhos relativos `/api/v1/...`.
 
 ## Testing

@@ -170,3 +170,42 @@ export interface MeRead {
 export function me(): Promise<MeRead> {
   return apiFetch<MeRead>("/auth/me", { auth: true });
 }
+
+export interface ProjectCreate {
+  organization_id: string;
+  name: string;
+  description?: string | null;
+  goal?: string | null;
+  start_date?: string | null;
+  responsible?: string | null;
+}
+
+export interface ProjectRead extends ProjectCreate {
+  id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export function listProjects(
+  organizationId?: string,
+): Promise<Paginated<ProjectRead>> {
+  const query = organizationId
+    ? `?organization_id=${encodeURIComponent(organizationId)}`
+    : "";
+  return apiFetch<Paginated<ProjectRead>>(`/projects/${query}`, { auth: true });
+}
+
+export function createProject(input: ProjectCreate): Promise<ProjectRead> {
+  return apiFetch<ProjectRead>("/projects/", {
+    method: "POST",
+    body: input,
+    auth: true,
+  });
+}

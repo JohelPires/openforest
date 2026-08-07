@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlmodel import SQLModel
 
 from openforest.api.models.area import RestorationStatus
+from openforest.api.schemas.monitoring import MonitoringRead
 
 
 class AreaCreate(SQLModel):
@@ -20,6 +21,7 @@ class AreaRead(AreaCreate):
     project_id: UUID
     created_at: datetime
     updated_at: datetime
+    recent_monitorings: list[MonitoringRead] = []
 
 
 class AreaUpdate(SQLModel):

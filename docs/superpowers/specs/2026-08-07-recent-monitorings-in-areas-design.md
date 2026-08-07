@@ -42,29 +42,25 @@ Sem import circular (`schemas/monitoring.py` não importa `schemas/area.py`).
 ### `services/area_service.py`
 
 - Constante `RECENT_MONITORINGS_LIMIT = 10`.
-- `list_areas` mantém a query existente de áreas e adiciona **1 query** com window function cobrindo todas as áreas do projeto, com o mesmo scoping por organização:
+- `list_areas` mantém a query existente de áreas e adiciona **1 query** de monitoramentos cobrindo todas as áreas do projeto, com o mesmo scoping por organização:
 
 ```python
-rn = func.row_number().over(
-    partition_by=Monitoring.area_id,
-    order_by=(Monitoring.visit_date.desc(), Monitoring.created_at.desc()),
-).label("rn")
-
-subq = (
-    select(Monitoring, rn)
-    .join(Area, Monitoring.area_id == Area.id)
-    .join(Project, Area.project_id == Project.id)
+stmt = (
+    select(Monitoring)
+    .join(Area)
+    .join(Project)
     .where(Area.project_id == project_id)
+    .order_by(text("monitoring.visit_date desc"), text("monitoring.created_at desc"))
 )
 if organization_id is not None:
-    subq = subq.where(Project.organization_id == organization_id)
-
-rows = session.exec(select(subq.corresponding_column...)).all()
+    stmt = stmt.where(Project.organization_id == organization_id)
 ```
 
-- Agrupa por `area_id` num dict; monta `list[AreaRead]` via `AreaRead(**area.model_dump(), recent_monitorings=...)`.
+- Ordena por `visit_date desc` (tiebreak `created_at desc`) e trunca em Python para os `RECENT_MONITORINGS_LIMIT` mais recentes por área, agrupando por `area_id`.
 - Sem áreas → retorna `[]` sem executar a segunda query.
 - `list_areas` passa a retornar `list[AreaRead]` (antes `list[Area]`).
+
+> **Nota de implementação:** o mypy do repo (strict, sem plugin do SQLModel) tipa os campos do modelo como `UUID`/`date` puros, então expressões de window function (`func.row_number().over(...)`, `Column.desc()`, `__table__`) não typecheckam. A implementação segue o padrão já usado em `project_service.py` (`select(Model) + join + order_by` textual) e trunca o limite em Python. Custo: o banco transfere todos os monitoramentos do projeto (resposta ainda limitada a 10/área). Revisitar window function se o volume crescer.
 
 ### `routers/areas.py`
 

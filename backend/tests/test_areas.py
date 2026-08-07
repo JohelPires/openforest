@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
 from openforest.api.config import settings
+from openforest.api.models.area import Area
 from openforest.api.models.organization import Organization
 from openforest.api.models.project import Project
 from openforest.api.models.user import User
@@ -159,6 +160,130 @@ def test_list_areas_by_project(
     )
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
     assert len(response.json()) == 2
+
+
+def test_list_areas_recent_monitorings_empty(
+    client: TestClient, project: Project, auth_headers: dict, manager_membership: UserOrganization
+) -> None:
+    client.post(
+        f"/api/v1/projects/{project.id}/areas",
+        json={"name": "Área sem monitoramentos"},
+        headers=auth_headers,
+    )
+    response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()[0]["recent_monitorings"] == []
+
+
+def test_list_areas_includes_recent_monitorings_ordered(
+    client: TestClient, project: Project, auth_headers: dict, manager_membership: UserOrganization
+) -> None:
+    area_resp = client.post(
+        f"/api/v1/projects/{project.id}/areas",
+        json={"name": "Área com monitoramentos"},
+        headers=auth_headers,
+    )
+    area_id = area_resp.json()["id"]
+
+    for visit_date in ("2026-05-01", "2026-08-01", "2026-07-01"):
+        client.post(
+            f"/api/v1/areas/{area_id}/monitorings",
+            json={"visit_date": visit_date},
+            headers=auth_headers,
+        )
+
+    response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    recent = data[0]["recent_monitorings"]
+    assert len(recent) == 3
+    assert [m["visit_date"] for m in recent] == ["2026-08-01", "2026-07-01", "2026-05-01"]
+    assert recent[0]["area_id"] == area_id
+
+
+def test_list_areas_recent_monitorings_limited_to_10(
+    client: TestClient, project: Project, auth_headers: dict, manager_membership: UserOrganization
+) -> None:
+    area_resp = client.post(
+        f"/api/v1/projects/{project.id}/areas",
+        json={"name": "Área com muitos monitoramentos"},
+        headers=auth_headers,
+    )
+    area_id = area_resp.json()["id"]
+
+    for month in range(1, 13):
+        client.post(
+            f"/api/v1/areas/{area_id}/monitorings",
+            json={"visit_date": f"2026-{month:02d}-01"},
+            headers=auth_headers,
+        )
+
+    response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
+    recent = response.json()[0]["recent_monitorings"]
+    assert len(recent) == 10
+    assert recent[0]["visit_date"] == "2026-12-01"
+    assert recent[-1]["visit_date"] == "2026-03-01"
+
+
+def test_list_areas_recent_monitorings_scoped_to_org(
+    client: TestClient,
+    session: Session,
+    project: Project,
+    organization: Organization,
+    auth_headers: dict,
+    manager_membership: UserOrganization,
+) -> None:
+    other_org = Organization(name="Outra ONG", slug="outra-ong-area-mon")
+    other_user = User(
+        name="Other", email="otherareamon@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(other_org)
+    session.add(other_user)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=other_user.id,
+            organization_id=other_org.id,
+            role=UserOrganizationRole.manager,
+        )
+    )
+    session.commit()
+
+    other_project = Project(name="Projeto Outra ONG", organization_id=other_org.id)
+    session.add(other_project)
+    session.commit()
+    other_area = Area(name="Área Outra ONG", project_id=other_project.id)
+    session.add(other_area)
+    session.commit()
+
+    area_resp = client.post(
+        f"/api/v1/projects/{project.id}/areas",
+        json={"name": "Minha Área"},
+        headers=auth_headers,
+    )
+    area_id = area_resp.json()["id"]
+
+    client.post(
+        f"/api/v1/areas/{area_id}/monitorings",
+        json={"visit_date": "2026-07-01"},
+        headers=auth_headers,
+    )
+
+    other_login = client.post(
+        "/api/v1/auth/login", json={"email": "otherareamon@test.com", "password": "secret123"}
+    )
+    other_headers = {"Authorization": f"Bearer {other_login.json()['access_token']}"}
+    client.post(
+        f"/api/v1/areas/{other_area.id}/monitorings",
+        json={"visit_date": "2026-08-01"},
+        headers=other_headers,
+    )
+
+    response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
+    assert response.status_code == 200
+    recent = response.json()[0]["recent_monitorings"]
+    assert [m["visit_date"] for m in recent] == ["2026-07-01"]
 
 
 def test_get_area(

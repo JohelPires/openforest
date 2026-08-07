@@ -24,7 +24,7 @@ def list_areas_route(
     current_user: CurrentUserDep,
     current_org: CurrentOrgDep,
     project_id: UUID,
-) -> list[Area]:
+) -> list[AreaRead]:
     organization_id = current_org.organization_id if current_org else None
     return list_areas(session, project_id, organization_id)
 

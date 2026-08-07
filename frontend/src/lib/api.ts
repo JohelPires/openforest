@@ -180,9 +180,31 @@ export function listProjects(organizationId?: string): Promise<Paginated<Project
 }
 
 export function createProject(input: ProjectCreate): Promise<ProjectRead> {
-   return apiFetch<ProjectRead>('/projects/', {
-      method: 'POST',
-      body: input,
-      auth: true,
-   })
+  return apiFetch<ProjectRead>("/projects/", {
+    method: "POST",
+    body: input,
+    auth: true,
+  });
+}
+
+export type RestorationStatus =
+  | "planned"
+  | "active"
+  | "completed"
+  | "cancelled";
+
+export interface AreaRead {
+  id: string;
+  project_id: string;
+  name: string;
+  size_hectares?: number | null;
+  biome?: string | null;
+  coordinates?: Record<string, unknown> | null;
+  restoration_status: RestorationStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export function projectAreas(projectId: string): Promise<AreaRead[]> {
+  return apiFetch<AreaRead[]>(`/projects/${projectId}/areas`, { auth: true });
 }

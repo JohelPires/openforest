@@ -8,6 +8,7 @@ import {
   login,
   logout,
   me,
+  projectAreas,
 } from "@/lib/api";
 import { clearSession, setSession } from "@/lib/auth";
 
@@ -290,6 +291,44 @@ describe("projetos", () => {
     expect(url).toBe("/api/v1/projects/");
     expect((init as RequestInit).method).toBe("POST");
     expect(JSON.parse((init as RequestInit).body as string)).toEqual(input);
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+});
+
+describe("áreas de um projeto", () => {
+  const areas = [
+    {
+      id: "area-1",
+      project_id: "proj-1",
+      name: "Borrazóis",
+      size_hectares: 42,
+      biome: "Mata Atlântica",
+      restoration_status: "active",
+      created_at: "2024-05-01T00:00:00Z",
+      updated_at: "2024-05-01T00:00:00Z",
+    },
+  ];
+
+  beforeEach(() => {
+    setSession(
+      { access_token: "abc", refresh_token: "def", token_type: "bearer" },
+      true,
+    );
+  });
+
+  it("busca as áreas do projeto com autorização", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(areas), { status: 200 })),
+    );
+
+    await expect(projectAreas("proj-1")).resolves.toEqual(areas);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/projects/proj-1/areas");
+    expect((init as RequestInit).method ?? "GET").toBe("GET");
     expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
       "Bearer abc",
     );

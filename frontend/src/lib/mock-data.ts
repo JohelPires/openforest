@@ -408,10 +408,6 @@ export const DEMO_PROJECT_IDS = [
   "proj-restauracao-sul",
 ] as const;
 
-export function projectAreas(projectId: string): Area[] {
-  return AREAS.filter((area) => area.project_id === projectId);
-}
-
 export const SENSORS: SensorSeries[] = [
   {
     id: "temperatura",

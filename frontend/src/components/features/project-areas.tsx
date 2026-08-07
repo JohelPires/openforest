@@ -1,13 +1,70 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { Map } from "lucide-react";
 import { AreaTimeline } from "@/components/features/area-timeline";
-import { projectAreas } from "@/lib/mock-data";
+import { projectAreas, type AreaRead } from "@/lib/api";
+import type { Area } from "@/lib/mock-data";
 
 interface ProjectAreasProps {
   projectId: string;
 }
 
+function toTimelineArea(area: AreaRead): Area {
+  return {
+    id: area.id,
+    project_id: area.project_id,
+    name: area.name,
+    biome: area.biome,
+    size_hectares: area.size_hectares,
+    restoration_status: area.restoration_status,
+    coordinates: area.coordinates,
+    goal: null,
+    started_at: area.created_at.slice(0, 10),
+    seedlings: 0,
+    survival_rate: 0,
+    monitorings: [],
+    created_at: area.created_at,
+    updated_at: area.updated_at,
+  };
+}
+
 export function ProjectAreas({ projectId }: ProjectAreasProps) {
-  const areas = projectAreas(projectId);
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["areas", projectId],
+    queryFn: () => projectAreas(projectId),
+  });
+
+  if (isPending) {
+    return (
+      <div
+        role="status"
+        aria-label="Carregando áreas"
+        className="space-y-4"
+      >
+        <div className="h-8 w-40 animate-pulse rounded-md bg-forest/10" />
+        <div className="h-40 animate-pulse rounded-2xl bg-forest/5" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <section
+        role="alert"
+        className="rounded-2xl border border-destructive/25 bg-destructive/5 px-6 py-10 text-center"
+      >
+        <p className="font-heading text-lg tracking-tight text-forest">
+          Não foi possível carregar as áreas do projeto
+        </p>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-moss">
+          Verifique sua conexão e tente novamente.
+        </p>
+      </section>
+    );
+  }
+
+  const areas = (data ?? []).map(toTimelineArea);
 
   if (areas.length === 0) {
     return (

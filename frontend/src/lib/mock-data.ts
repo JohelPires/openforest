@@ -27,6 +27,7 @@ export interface Monitoring {
 
 export interface Area {
   id: string;
+  project_id: string;
   name: string;
   biome: Biome;
   size_hectares: number;
@@ -51,6 +52,7 @@ export interface SensorSeries {
 export const AREAS: Area[] = [
   {
     id: "area-borrazois",
+    project_id: "proj-restauracao-norte",
     name: "Borrazóis",
     biome: "Mata Atlântica",
     size_hectares: 42,
@@ -139,6 +141,7 @@ export const AREAS: Area[] = [
   },
   {
     id: "area-serra-verde",
+    project_id: "proj-restauracao-sul",
     name: "Serra Verde",
     biome: "Cerrado",
     size_hectares: 18,
@@ -177,6 +180,7 @@ export const AREAS: Area[] = [
   },
   {
     id: "area-lagoa-funda",
+    project_id: "proj-restauracao-norte",
     name: "Lagoa Funda",
     biome: "Mata Atlântica",
     size_hectares: 30,
@@ -240,6 +244,7 @@ export const AREAS: Area[] = [
   },
   {
     id: "area-riacho-limpo",
+    project_id: "proj-restauracao-norte",
     name: "Riacho Limpo",
     biome: "Mata Atlântica",
     size_hectares: 22,
@@ -314,6 +319,7 @@ export const AREAS: Area[] = [
   },
   {
     id: "area-cabeceira",
+    project_id: "proj-restauracao-sul",
     name: "Cabeceira do Mato",
     biome: "Cerrado",
     size_hectares: 16,
@@ -387,6 +393,15 @@ export const AREAS: Area[] = [
     ],
   },
 ];
+
+export const DEMO_PROJECT_IDS = [
+  "proj-restauracao-norte",
+  "proj-restauracao-sul",
+] as const;
+
+export function projectAreas(projectId: string): Area[] {
+  return AREAS.filter((area) => area.project_id === projectId);
+}
 
 export const SENSORS: SensorSeries[] = [
   {

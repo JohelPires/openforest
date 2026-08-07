@@ -42,15 +42,17 @@ function fullDate(iso: string): string {
 }
 
 const STATUS_DOT: Record<RestorationStatus, string> = {
-  plantio_recente: "border-gold bg-gold",
-  em_restauracao: "border-moss bg-moss",
-  recuperada: "border-forest bg-forest",
+  planned: "border-gold bg-gold",
+  active: "border-moss bg-moss",
+  completed: "border-forest bg-forest",
+  cancelled: "border-soil bg-soil",
 };
 
 const STATUS_BADGE: Record<RestorationStatus, string> = {
-  plantio_recente: "border-gold/30 bg-gold/15 text-forest",
-  em_restauracao: "border-forest/15 bg-sage/35 text-forest",
-  recuperada: "border-forest/20 bg-forest/10 text-forest",
+  planned: "border-gold/30 bg-gold/15 text-forest",
+  active: "border-forest/15 bg-sage/35 text-forest",
+  completed: "border-forest/20 bg-forest/10 text-forest",
+  cancelled: "border-soil/30 bg-soil/15 text-moss",
 };
 
 function MonitoringList({ area }: { area: Area }) {
@@ -77,7 +79,7 @@ function MonitoringList({ area }: { area: Area }) {
           <div>
             <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
               <span className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-gold">
-                {fullDate(monitoring.date)}
+                {fullDate(monitoring.visit_date)}
               </span>
               <span className="text-xs text-moss/70">· {monitoring.author}</span>
             </div>
@@ -91,7 +93,7 @@ function MonitoringList({ area }: { area: Area }) {
               <span className="font-mono text-xs text-forest">
                 {monitoring.avg_height.toLocaleString("pt-BR")} m médios
               </span>
-              {monitoring.species.map((species) => (
+              {Object.keys(monitoring.species_data ?? {}).map((species) => (
                 <span
                   key={species}
                   className="rounded-full border border-forest/10 bg-forest/5 px-2 py-0.5 text-[11px] text-forest"
@@ -171,11 +173,11 @@ function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
                 key={monitoring.id}
                 type="button"
                 onClick={onToggle}
-                aria-label={`${area.name}, visita de ${fullDate(monitoring.date)}. ${
+                aria-label={`${area.name}, visita de ${fullDate(monitoring.visit_date)}. ${
                   expanded ? "Recolher detalhes." : "Ver detalhes."
                 }`}
                 className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
-                style={{ left: `${pct(toMs(monitoring.date))}%` }}
+                style={{ left: `${pct(toMs(monitoring.visit_date))}%` }}
               >
                 <span
                   className={cn(
@@ -187,7 +189,7 @@ function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
                   )}
                 />
                 <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.1em] text-moss/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-                  {shortDate(monitoring.date)}
+                  {shortDate(monitoring.visit_date)}
                 </span>
               </button>
             ))}
@@ -221,9 +223,11 @@ function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
           >
             <div className="overflow-hidden">
               <div className="mt-5 border-t border-forest/10 pt-5">
-                <blockquote className="mb-6 border-l-2 border-gold/50 pl-3 text-sm leading-relaxed text-moss/80">
-                  Objetivo: {area.goal}
-                </blockquote>
+                {area.goal ? (
+                  <blockquote className="mb-6 border-l-2 border-gold/50 pl-3 text-sm leading-relaxed text-moss/80">
+                    Objetivo: {area.goal}
+                  </blockquote>
+                ) : null}
                 <MonitoringList area={area} />
               </div>
             </div>
@@ -281,7 +285,7 @@ export function AreaTimeline({
     const areaLatest = area.monitorings[area.monitorings.length - 1];
     if (!areaLatest) return latest;
     if (!latest) return areaLatest;
-    return toMs(areaLatest.date) > toMs(latest.date) ? areaLatest : latest;
+    return toMs(areaLatest.visit_date) > toMs(latest.visit_date) ? areaLatest : latest;
   }, null);
 
   return (
@@ -311,9 +315,10 @@ export function AreaTimeline({
         >
           {(
             [
-              ["plantio_recente", "Plantio recente"],
-              ["em_restauracao", "Em restauração"],
-              ["recuperada", "Recuperada"],
+              ["planned", "Planejada"],
+              ["active", "Em restauração"],
+              ["completed", "Recuperada"],
+              ["cancelled", "Cancelada"],
             ] as [RestorationStatus, string][]
           ).map(([status, label]) => (
             <li key={status} className="flex items-center gap-1.5 text-xs text-moss/80">
@@ -378,7 +383,7 @@ export function AreaTimeline({
       {latestMonitoring ? (
         <p className="mt-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-moss/50">
           <span aria-hidden="true" className="h-1 w-1 rounded-full bg-gold" />
-          Última atividade registrada em {fullDate(latestMonitoring.date)}
+          Última atividade registrada em {fullDate(latestMonitoring.visit_date)}
         </p>
       ) : null}
     </section>

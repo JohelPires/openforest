@@ -111,13 +111,18 @@ def test_create_area(
 ) -> None:
     response = client.post(
         f"/api/v1/projects/{project.id}/areas",
-        json={"name": "Área 1", "biome": "Mata Atlântica"},
+        json={
+            "name": "Área 1",
+            "biome": "Mata Atlântica",
+            "goal": "Restaurar 5 ha de mata ciliar",
+        },
         headers=auth_headers,
     )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Área 1"
     assert data["biome"] == "Mata Atlântica"
+    assert data["goal"] == "Restaurar 5 ha de mata ciliar"
     assert data["project_id"] == str(project.id)
     assert "id" in data
 
@@ -188,12 +193,13 @@ def test_update_area(
 
     response = client.patch(
         f"/api/v1/areas/{area_id}",
-        json={"name": "Nome Atualizado"},
+        json={"name": "Nome Atualizado", "goal": "Meta atualizada"},
         headers=auth_headers,
     )
     assert response.status_code == 200
     assert response.json()["name"] == "Nome Atualizado"
     assert response.json()["biome"] == "Cerrado"
+    assert response.json()["goal"] == "Meta atualizada"
 
 
 def test_update_area_not_found(client: TestClient, auth_headers: dict) -> None:

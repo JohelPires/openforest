@@ -8,6 +8,7 @@ from openforest.api.models.area import RestorationStatus
 
 class AreaCreate(SQLModel):
     name: str
+    goal: str | None = None
     size_hectares: float | None = None
     biome: str | None = None
     coordinates: dict[str, object] | None = None
@@ -23,6 +24,7 @@ class AreaRead(AreaCreate):
 
 class AreaUpdate(SQLModel):
     name: str | None = None
+    goal: str | None = None
     size_hectares: float | None = None
     biome: str | None = None
     coordinates: dict[str, object] | None = None

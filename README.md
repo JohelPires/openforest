@@ -370,6 +370,28 @@ pytest -x                      # para no primeiro erro
 pytest --cov=src/openforest/api  # com cobertura
 ```
 
+### Dados de desenvolvimento (seed)
+
+Popula o banco com dados realistas de organizações, usuários, projetos, áreas, monitoramentos e fotos placeholder, simulando um ambiente em produção:
+
+```bash
+cd backend
+uv run python scripts/seed.py            # popula dados realistas (idempotente)
+uv run python scripts/seed.py --reset    # limpa o banco e popula do zero
+uv run python scripts/seed.py --no-photos  # sem registros/arquivos de foto
+```
+
+Credenciais criadas pelo seed:
+
+- Admin (superuser): `admin@openforest.dev`
+- Senha comum de todos os usuários: `openforest123` (ajustável com `--password`)
+
+O seed é **idempotente**: em execuções seguintes ele pula o que já existe. Use `--reset` para recriar tudo do zero. Para rodar dentro do container:
+
+```bash
+docker compose exec backend uv run python scripts/seed.py --reset
+```
+
 ---
 
 # Documentation

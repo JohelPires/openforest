@@ -20,6 +20,7 @@ class Area(Base, table=True):
         nullable=False, foreign_key="project.id", ondelete="CASCADE", index=True
     )
     name: str = Field(nullable=False)
+    goal: str | None = Field(default=None)
     size_hectares: float | None = Field(default=None)
     biome: str | None = Field(default=None)
     coordinates: dict[str, object] | None = Field(default=None, sa_type=JSON)

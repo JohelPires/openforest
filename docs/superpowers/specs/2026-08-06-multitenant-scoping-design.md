@@ -119,9 +119,9 @@ class UserOrganizationRole(str, enum.Enum):
 
 ## Trade-offs Considerados
 
-- **Service-layer auto-scoping (escolhido):** explícito, segue padrões existentes, testável com sqlite. Custo: disciplina por convenção (todo query novo precisa do filtro).
+- **Service-layer auto-scoping (escolhido):** explícito, segue padrões existentes, testável com PostgreSQL. Custo: disciplina por convenção (todo query novo precisa do filtro).
 - **Helper de query escopada:** mais DRY para entidades aninhadas, mas mais abstração; pode entrar como refino futuro se as listas ficarem repetitivas.
-- **PostgreSQL Row-Level Security:** garantia mais forte no nível do banco, mas quebra o setup de testes sqlite e adiciona complexidade operacional — **adiado** (caminho de migração quando o monólito crescer).
+- **PostgreSQL Row-Level Security:** garantia mais forte no nível do banco, mas adiciona complexidade operacional — **adiado** (caminho de migração quando o monólito crescer).
 
 ## Itens Adiados
 

@@ -16,16 +16,16 @@ OpenForest é uma plataforma open source para monitoramento colaborativo de proj
 
 ## Tech Stack
 
-| Camada           | Tecnologia                               |
-|------------------|------------------------------------------|
-| Framework        | Next.js 16 (App Router)                  |
-| UI Library       | React 19                                 |
-| Linguagem        | TypeScript (strict mode)                 |
-| Estilização      | TailwindCSS                              |
-| Pacotes          | npm                                      |
-| Testes           | vitest + @testing-library/react          |
-| Lint             | ESLint                                   |
-| Formatação       | Prettier                                 |
+| Camada      | Tecnologia                      |
+| ----------- | ------------------------------- |
+| Framework   | Next.js 16 (App Router)         |
+| UI Library  | React 19                        |
+| Linguagem   | TypeScript (strict mode)        |
+| Estilização | TailwindCSS                     |
+| Pacotes     | npm                             |
+| Testes      | vitest + @testing-library/react |
+| Lint        | ESLint                          |
+| Formatação  | Prettier                        |
 
 ## Project Structure
 
@@ -133,13 +133,13 @@ export default async function ProjectsPage() {
 
 ```typescript
 // src/components/features/ProjectForm.tsx
-"use client";
+'use client'
 
-import { useState } from "react";
+import { useState } from 'react'
 
 export function ProjectForm() {
-  const [name, setName] = useState("");
-  // ...
+   const [name, setName] = useState('')
+   // ...
 }
 ```
 
@@ -164,32 +164,32 @@ export function Card({ children }: { children: React.ReactNode }) {
 
 ```typescript
 interface User {
-  id: string;
-  email: string;
+   id: string
+   email: string
 }
 
-type Status = "active" | "inactive" | "pending";
+type Status = 'active' | 'inactive' | 'pending'
 ```
 
 ### Naming
 
-| Item             | Convention        | Exemplo                |
-|------------------|-------------------|------------------------|
-| Componentes      | PascalCase        | `ProjectCard`          |
-| Funções          | camelCase         | `formatDate()`         |
-| Arquivos de componente | PascalCase | `ProjectCard.tsx`      |
-| Arquivos de utilidade  | camelCase | `api.ts`, `utils.ts`   |
-| Pastas (rota)    | kebab-case        | `/project-settings`    |
-| Pastas (código)  | camelCase         | `src/lib/`, `src/types/` |
+| Item                   | Convention | Exemplo                  |
+| ---------------------- | ---------- | ------------------------ |
+| Componentes            | PascalCase | `ProjectCard`            |
+| Funções                | camelCase  | `formatDate()`           |
+| Arquivos de componente | PascalCase | `ProjectCard.tsx`        |
+| Arquivos de utilidade  | camelCase  | `api.ts`, `utils.ts`     |
+| Pastas (rota)          | kebab-case | `/project-settings`      |
+| Pastas (código)        | camelCase  | `src/lib/`, `src/types/` |
 
 ### Imports
 
 ```typescript
 // Ordem: React → Next → libs → internos
-import { useState } from "react";
-import Link from "next/link";
-import { api } from "@/lib/api";
-import { Button } from "@/components/ui/Button";
+import { useState } from 'react'
+import Link from 'next/link'
+import { api } from '@/lib/api'
+import { Button } from '@/components/ui/Button'
 ```
 
 ## API Integration
@@ -204,7 +204,7 @@ import { Button } from "@/components/ui/Button";
 
 ```typescript
 // Chamadas do browser usam caminhos relativos (rewrite do next.config.ts)
-apiFetch<T>("/v1/...") // -> /api/v1/...
+apiFetch<T>('/v1/...') // -> /api/v1/...
 ```
 
 - `apiFetch<T>(path, { method, body, auth })` — `auth: true` adiciona `Authorization: Bearer <access_token>`.
@@ -223,36 +223,36 @@ apiFetch<T>("/v1/...") // -> /api/v1/...
 
 ## Backend API Reference
 
-Fonte: `/openapi.json` do backend (FastAPI). Base: `http://localhost:8000/api/v1`.
+Fonte da documentação do backend: http://localhost:8000/openapi.json
 
 ### Autenticação
 
-| Método | Rota                    | Body                        | Retorno                                        |
-|--------|-------------------------|-----------------------------|------------------------------------------------|
-| POST   | `/auth/register`        | `{name, email, password}`   | `{access_token, refresh_token, token_type}`    |
-| POST   | `/auth/login`           | `{email, password}`         | `{access_token, refresh_token, token_type}`    |
-| POST   | `/auth/refresh`         | `{refresh_token}`           | `{access_token, refresh_token, token_type}`    |
-| POST   | `/auth/logout`          | `{refresh_token}`           | `{msg}`                                        |
+| Método | Rota             | Body                      | Retorno                                     |
+| ------ | ---------------- | ------------------------- | ------------------------------------------- |
+| POST   | `/auth/register` | `{name, email, password}` | `{access_token, refresh_token, token_type}` |
+| POST   | `/auth/login`    | `{email, password}`       | `{access_token, refresh_token, token_type}` |
+| POST   | `/auth/refresh`  | `{refresh_token}`         | `{access_token, refresh_token, token_type}` |
+| POST   | `/auth/logout`   | `{refresh_token}`         | `{msg}`                                     |
 
 - Register/login/refresh retornam tokens (register já loga o usuário).
 - Erros conhecidos: `duplicate_email` (409), `invalid_credentials` (401), `token_expired`/`invalid_token` (401).
 
 ### Endpoints protegidos (exigem `Authorization: Bearer <access_token>`)
 
-| Método | Rota                                   | Observação                        |
-|--------|----------------------------------------|-----------------------------------|
-| GET/POST | `/projects/` (com barra final)        | Lista paginada / cria             |
-| GET/PATCH/DELETE | `/projects/{project_id}`       | CRUD                              |
-| GET/POST | `/organizations/` (com barra final)   | Lista paginada / cria             |
-| GET/PATCH/DELETE | `/organizations/{organization_id}` | CRUD                          |
-| GET/POST | `/projects/{project_id}/areas`        | Áreas de um projeto               |
-| GET/PATCH/DELETE | `/areas/{area_id}`              | CRUD                              |
-| GET/POST | `/areas/{area_id}/monitorings`        | Monitoramentos de uma área        |
-| GET/PATCH/DELETE | `/monitorings/{monitoring_id}`  | CRUD                              |
-| POST   | `/monitorings/{monitoring_id}/photos` | Upload multipart (`file`)         |
-| GET/DELETE | `/photos/{photo_id}`              | Detalhe / remover                 |
-| GET    | `/photos/{photo_id}/download`          | Download                          |
-| GET    | `/health`                              | Sem auth                          |
+| Método           | Rota                                  | Observação                 |
+| ---------------- | ------------------------------------- | -------------------------- |
+| GET/POST         | `/projects/` (com barra final)        | Lista paginada / cria      |
+| GET/PATCH/DELETE | `/projects/{project_id}`              | CRUD                       |
+| GET/POST         | `/organizations/` (com barra final)   | Lista paginada / cria      |
+| GET/PATCH/DELETE | `/organizations/{organization_id}`    | CRUD                       |
+| GET/POST         | `/projects/{project_id}/areas`        | Áreas de um projeto        |
+| GET/PATCH/DELETE | `/areas/{area_id}`                    | CRUD                       |
+| GET/POST         | `/areas/{area_id}/monitorings`        | Monitoramentos de uma área |
+| GET/PATCH/DELETE | `/monitorings/{monitoring_id}`        | CRUD                       |
+| POST             | `/monitorings/{monitoring_id}/photos` | Upload multipart (`file`)  |
+| GET/DELETE       | `/photos/{photo_id}`                  | Detalhe / remover          |
+| GET              | `/photos/{photo_id}/download`         | Download                   |
+| GET              | `/health`                             | Sem auth                   |
 
 - Listas paginadas usam `{items, total, offset, limit}` (query `offset`/`limit`, máximo 100).
 - Consultas por id usam UUID.
@@ -285,21 +285,21 @@ vitest + @testing-library/react.
 
 ```typescript
 // tests/setup.ts
-import "@testing-library/jest-dom/vitest";
+import '@testing-library/jest-dom/vitest'
 ```
 
 ### Fixtures
 
 ```typescript
 // tests/helpers.tsx
-import { render, type RenderOptions } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { render, type RenderOptions } from '@testing-library/react'
+import { type ReactElement } from 'react'
 
 function customRender(ui: ReactElement, options?: RenderOptions) {
-  return render(ui, { ...options });
+   return render(ui, { ...options })
 }
 
-export { customRender as render };
+export { customRender as render }
 ```
 
 ### Test Example

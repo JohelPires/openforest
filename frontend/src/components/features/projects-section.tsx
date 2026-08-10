@@ -13,18 +13,14 @@ import {
   type NewProjectInput,
 } from "@/components/features/new-project-dialog";
 import { createProject, listProjects } from "@/lib/api";
-import type { UserRole } from "@/lib/api";
-
-const CAN_CREATE_ROLES: UserRole[] = ["admin", "manager"];
+import { canManageOrganization } from "@/lib/user";
 
 export function ProjectsSection() {
   const queryClient = useQueryClient();
   const { organization, loading: userLoading } = useUser();
 
   const orgId = organization?.id;
-  const canCreate = Boolean(
-    orgId && organization?.role && CAN_CREATE_ROLES.includes(organization.role),
-  );
+  const canCreate = Boolean(orgId && canManageOrganization(organization?.role));
   const queryKey = ["projects", orgId ?? "all"] as const;
 
   const { data, isPending, isError, refetch } = useQuery({

@@ -1,12 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useParams, useRouter } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CalendarDays, RefreshCw, User } from 'lucide-react'
 import { apiFetch, type ProjectRead } from '@/lib/api'
 import { useBreadcrumb } from '@/components/features/painel-breadcrumb'
 import { ProjectAreas } from '@/components/features/project-areas'
+import { EditProjectDialog } from '@/components/features/edit-project-dialog'
+import { DeleteProjectDialog } from '@/components/features/delete-project-dialog'
+import { useUser } from '@/components/features/user-provider'
+import { canManageOrganization } from '@/lib/user'
 
 function formatDate(value?: string | null): string | null {
    if (!value) return null
@@ -21,13 +25,29 @@ function formatDate(value?: string | null): string | null {
 
 export default function ProjectDetailPage() {
    const params = useParams<{ id: string }>()
+   const router = useRouter()
+   const queryClient = useQueryClient()
+   const { organization } = useUser()
 
    const { data, isPending, isError, refetch } = useQuery({
       queryKey: ['project', params.id],
       queryFn: () => apiFetch<ProjectRead>(`/projects/${params.id}`, { auth: true }),
    })
 
+   const canManage = canManageOrganization(organization?.role)
+
    useBreadcrumb(data ? ['Projetos', data.name] : ['Projetos'])
+
+   function handleUpdated(updated: ProjectRead) {
+      queryClient.setQueryData(['project', params.id], updated)
+   }
+
+   function handleDeleted() {
+      queryClient.removeQueries({ queryKey: ['project', params.id] })
+      queryClient.removeQueries({ queryKey: ['areas', params.id] })
+      queryClient.invalidateQueries({ queryKey: ['projects', organization?.id ?? 'all'] })
+      router.push('/painel/projetos')
+   }
 
    if (isPending) {
       return (
@@ -74,11 +94,23 @@ export default function ProjectDetailPage() {
             Voltar para projetos
          </Link>
 
-         <header>
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.2em] text-gold">Projeto</p>
-            <h1 className="font-heading mt-3 text-3xl leading-[1.05] tracking-tight text-forest sm:text-4xl">
-               {data.name}
-            </h1>
+         <header className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+               <p className="font-mono text-xs font-medium uppercase tracking-[0.2em] text-gold">Projeto</p>
+               <h1 className="font-heading mt-3 text-3xl leading-[1.05] tracking-tight text-forest sm:text-4xl">
+                  {data.name}
+               </h1>
+            </div>
+            {canManage ? (
+               <div className="flex items-center gap-2">
+                  <EditProjectDialog project={data} onUpdated={handleUpdated} />
+                  <DeleteProjectDialog
+                     projectId={data.id}
+                     projectName={data.name}
+                     onDeleted={handleDeleted}
+                  />
+               </div>
+            ) : null}
          </header>
 
          {data.goal || data.description ? (

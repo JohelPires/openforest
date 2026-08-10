@@ -187,6 +187,34 @@ export function createProject(input: ProjectCreate): Promise<ProjectRead> {
   });
 }
 
+export interface ProjectUpdate {
+  name?: string | null;
+  description?: string | null;
+  goal?: string | null;
+  start_date?: string | null;
+  responsible?: string | null;
+}
+
+export function updateProject(
+  projectId: string,
+  input: ProjectUpdate,
+): Promise<ProjectRead> {
+  return apiFetch<ProjectRead>(`/projects/${projectId}`, {
+    method: "PATCH",
+    body: input,
+    auth: true,
+  });
+}
+
+export function deleteProject(
+  projectId: string,
+): Promise<{ msg?: string }> {
+  return apiFetch<{ msg?: string }>(`/projects/${projectId}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
 export type RestorationStatus =
   | "planned"
   | "active"

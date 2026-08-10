@@ -4,6 +4,7 @@ import {
   ApiError,
   apiFetch,
   createProject,
+  deleteProject,
   getArea,
   listAreaMonitorings,
   listProjects,
@@ -11,6 +12,7 @@ import {
   logout,
   me,
   projectAreas,
+  updateProject,
 } from "@/lib/api";
 import { clearSession, setSession } from "@/lib/auth";
 
@@ -293,6 +295,50 @@ describe("projetos", () => {
     expect(url).toBe("/api/v1/projects/");
     expect((init as RequestInit).method).toBe("POST");
     expect(JSON.parse((init as RequestInit).body as string)).toEqual(input);
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+
+  it("atualiza um projeto com PATCH e autorização", async () => {
+    const updated = { ...project, name: "Corredor Norte", goal: "Ampliar o corredor." };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(updated), { status: 200 })),
+    );
+
+    const input = {
+      name: "Corredor Norte",
+      goal: "Ampliar o corredor.",
+      description: null,
+      start_date: "2024-05-01",
+      responsible: "Carla Nunes",
+    };
+
+    await expect(updateProject("proj-1", input)).resolves.toEqual(updated);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/projects/proj-1");
+    expect((init as RequestInit).method).toBe("PATCH");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual(input);
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+
+  it("exclui um projeto com DELETE e autorização", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ msg: "Projeto excluído" }), { status: 200 }),
+      ),
+    );
+
+    await expect(deleteProject("proj-1")).resolves.toEqual({ msg: "Projeto excluído" });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/projects/proj-1");
+    expect((init as RequestInit).method).toBe("DELETE");
     expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
       "Bearer abc",
     );

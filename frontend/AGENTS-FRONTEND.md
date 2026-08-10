@@ -227,6 +227,8 @@ apiFetch<T>('/v1/...') // -> /api/v1/...
 Fonte da documentação do backend: http://localhost:8000/openapi.json (ou http://localhost:8000/docs no navegador).
 
 > **Contrato da API:** verifique sempre o Swagger/OpenAPI do backend **rodando** (`http://localhost:8000/openapi.json`), e não o código-fonte do backend neste worktree. O backend pode estar em execução a partir de outra branch/checkout, então o source local pode estar desatualizado em relação à API real.
+>
+> **Acesso restrito:** o worktree do frontend tem acesso apenas ao próprio código e à documentação Swagger. O source do backend (`backend/`) e demais pastas externas do monorepo **não são acessíveis** — todo entendimento da API deve vir do OpenAPI rodando. Não tente ler/editar arquivos fora de `frontend/`.
 
 ### Autenticação
 

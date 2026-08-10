@@ -10,6 +10,12 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   viewer: "Visualizador",
 };
 
+export const MANAGE_ROLES: UserRole[] = ["admin", "manager"];
+
+export function canManageOrganization(role: UserRole | null | undefined): boolean {
+  return role != null && MANAGE_ROLES.includes(role);
+}
+
 type Listener = () => void;
 
 const listeners = new Set<Listener>();

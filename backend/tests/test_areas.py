@@ -142,7 +142,7 @@ def test_create_area_invalid_project(client: TestClient, auth_headers: dict) -> 
 def test_list_areas_empty(client: TestClient, project: Project, auth_headers: dict) -> None:
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "offset": 0, "limit": 20}
 
 
 def test_list_areas_by_project(
@@ -159,7 +159,53 @@ def test_list_areas_by_project(
         headers=auth_headers,
     )
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
-    assert len(response.json()) == 2
+    data = response.json()
+    assert len(data["items"]) == 2
+    assert data["total"] == 2
+
+
+def test_list_areas_pagination(
+    client: TestClient, project: Project, auth_headers: dict, manager_membership: UserOrganization
+) -> None:
+    for name in ["Área A", "Área B", "Área C"]:
+        client.post(
+            f"/api/v1/projects/{project.id}/areas",
+            json={"name": name},
+            headers=auth_headers,
+        )
+
+    page_one = client.get(
+        f"/api/v1/projects/{project.id}/areas?offset=0&limit=2", headers=auth_headers
+    ).json()
+    assert len(page_one["items"]) == 2
+    assert page_one["total"] == 3
+
+    page_two = client.get(
+        f"/api/v1/projects/{project.id}/areas?offset=2&limit=2", headers=auth_headers
+    ).json()
+    assert len(page_two["items"]) == 1
+    assert page_two["total"] == 3
+
+
+def test_list_areas_invalid_pagination(
+    client: TestClient, project: Project, auth_headers: dict
+) -> None:
+    assert (
+        client.get(f"/api/v1/projects/{project.id}/areas?limit=0", headers=auth_headers).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            f"/api/v1/projects/{project.id}/areas?limit=101", headers=auth_headers
+        ).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            f"/api/v1/projects/{project.id}/areas?offset=-1", headers=auth_headers
+        ).status_code
+        == 422
+    )
 
 
 def test_list_areas_recent_monitorings_empty(
@@ -172,7 +218,7 @@ def test_list_areas_recent_monitorings_empty(
     )
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()[0]["recent_monitorings"] == []
+    assert response.json()["items"][0]["recent_monitorings"] == []
 
 
 def test_list_areas_includes_recent_monitorings_ordered(
@@ -195,8 +241,8 @@ def test_list_areas_includes_recent_monitorings_ordered(
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    recent = data[0]["recent_monitorings"]
+    assert len(data["items"]) == 1
+    recent = data["items"][0]["recent_monitorings"]
     assert len(recent) == 3
     assert [m["visit_date"] for m in recent] == ["2026-08-01", "2026-07-01", "2026-05-01"]
     assert recent[0]["area_id"] == area_id
@@ -220,7 +266,7 @@ def test_list_areas_recent_monitorings_limited_to_10(
         )
 
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
-    recent = response.json()[0]["recent_monitorings"]
+    recent = response.json()["items"][0]["recent_monitorings"]
     assert len(recent) == 10
     assert recent[0]["visit_date"] == "2026-12-01"
     assert recent[-1]["visit_date"] == "2026-03-01"
@@ -282,7 +328,7 @@ def test_list_areas_recent_monitorings_scoped_to_org(
 
     response = client.get(f"/api/v1/projects/{project.id}/areas", headers=auth_headers)
     assert response.status_code == 200
-    recent = response.json()[0]["recent_monitorings"]
+    recent = response.json()["items"][0]["recent_monitorings"]
     assert [m["visit_date"] for m in recent] == ["2026-07-01"]
 
 
@@ -370,7 +416,8 @@ def test_researcher_can_create_area(
     session.add(researcher)
     session.commit()
     membership = UserOrganization(
-        user_id=researcher.id, organization_id=organization.id,
+        user_id=researcher.id,
+        organization_id=organization.id,
         role=UserOrganizationRole.researcher,
     )
     session.add(membership)
@@ -399,7 +446,8 @@ def test_volunteer_cannot_create_area(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=volunteer.id, organization_id=organization.id,
+            user_id=volunteer.id,
+            organization_id=organization.id,
             role=UserOrganizationRole.volunteer,
         )
     )
@@ -431,7 +479,8 @@ def test_user_cannot_read_other_org_area(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=other_user.id, organization_id=other_org.id,
+            user_id=other_user.id,
+            organization_id=other_org.id,
             role=UserOrganizationRole.manager,
         )
     )
@@ -466,7 +515,8 @@ def test_user_cannot_create_area_in_other_org_project(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=other_user.id, organization_id=other_org.id,
+            user_id=other_user.id,
+            organization_id=other_org.id,
             role=UserOrganizationRole.manager,
         )
     )

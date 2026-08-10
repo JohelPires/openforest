@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import text
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
@@ -38,9 +38,7 @@ def create_area(
     return area
 
 
-def get_area(
-    session: Session, area_id: UUID, organization_id: UUID | None = None
-) -> Area | None:
+def get_area(session: Session, area_id: UUID, organization_id: UUID | None = None) -> Area | None:
     stmt = select(Area).join(Project).where(Area.id == area_id)
     if organization_id is not None:
         stmt = stmt.where(Project.organization_id == organization_id)
@@ -48,29 +46,43 @@ def get_area(
 
 
 def list_areas(
-    session: Session, project_id: UUID, organization_id: UUID | None = None
-) -> list[AreaRead]:
-    stmt = select(Area).join(Project).where(Area.project_id == project_id)
+    session: Session,
+    project_id: UUID,
+    offset: int,
+    limit: int,
+    organization_id: UUID | None = None,
+) -> tuple[list[AreaRead], int]:
+    count_stmt = select(func.count()).select_from(Area).join(Project)
+    stmt = (
+        select(Area)
+        .join(Project)
+        .where(Area.project_id == project_id)
+        .order_by(text("area.created_at desc"), text("area.id desc"))
+    )
     if organization_id is not None:
+        count_stmt = count_stmt.where(Project.organization_id == organization_id)
         stmt = stmt.where(Project.organization_id == organization_id)
-    areas = list(session.exec(stmt).all())
+    total = session.exec(count_stmt).one()
+    areas = list(session.exec(stmt.offset(offset).limit(limit)).all())
     if not areas:
-        return []
-    recent_by_area = _recent_monitorings_by_area(session, project_id, organization_id)
+        return [], total
+    recent_by_area = _recent_monitorings_by_area(
+        session, [area.id for area in areas], organization_id
+    )
     return [
         AreaRead(**area.model_dump(), recent_monitorings=recent_by_area.get(area.id, []))
         for area in areas
-    ]
+    ], total
 
 
 def _recent_monitorings_by_area(
-    session: Session, project_id: UUID, organization_id: UUID | None
+    session: Session, area_ids: list[UUID], organization_id: UUID | None
 ) -> dict[UUID, list[Monitoring]]:
     stmt = (
         select(Monitoring)
         .join(Area)
         .join(Project)
-        .where(Area.project_id == project_id)
+        .where(Monitoring.area_id.in_(area_ids))  # type: ignore[attr-defined]
         .order_by(text("monitoring.visit_date desc"), text("monitoring.created_at desc"))
     )
     if organization_id is not None:

@@ -10,9 +10,14 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   viewer: "Visualizador",
 };
 
-export function getCachedUser(): MeRead | null {
-  if (typeof window === "undefined") return null;
+type Listener = () => void;
 
+const listeners = new Set<Listener>();
+
+let cachedUser: MeRead | null = null;
+let cacheRead = false;
+
+function readCache(): MeRead | null {
   const raw =
     localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY);
   if (!raw) return null;
@@ -24,18 +29,48 @@ export function getCachedUser(): MeRead | null {
   }
 }
 
+function emitChange(): void {
+  for (const listener of listeners) listener();
+}
+
+export function getCachedUser(): MeRead | null {
+  if (typeof window === "undefined") return null;
+
+  if (!cacheRead) {
+    cachedUser = readCache();
+    cacheRead = true;
+  }
+  return cachedUser;
+}
+
+export function subscribeUserCache(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 export function setCachedUser(user: MeRead): void {
   if (typeof window === "undefined") return;
 
   const raw = JSON.stringify(user);
   const remember = localStorage.getItem("openforest_remember") !== "0";
   (remember ? localStorage : sessionStorage).setItem(USER_KEY, raw);
+
+  cachedUser = user;
+  cacheRead = true;
+  emitChange();
 }
 
 export function clearCachedUser(): void {
   if (typeof window === "undefined") return;
+
   localStorage.removeItem(USER_KEY);
   sessionStorage.removeItem(USER_KEY);
+
+  cachedUser = null;
+  cacheRead = true;
+  emitChange();
 }
 
 export function initialsOf(name: string): string {

@@ -23,8 +23,12 @@ const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<MeRead | null>(() => getCachedUser());
+  const [user, setUser] = useState<MeRead | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setUser(getCachedUser());
+  }, []);
 
   useEffect(() => {
     let active = true;

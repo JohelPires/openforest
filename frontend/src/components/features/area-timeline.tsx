@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { type Area, type Monitoring } from "@/lib/mock-data";
 import {
+  STATUS_BADGE,
+  STATUS_DOT,
   STATUS_LABEL,
-  type Area,
-  type Monitoring,
   type RestorationStatus,
-} from "@/lib/mock-data";
+} from "@/lib/status";
 import { Reveal } from "@/components/reveal";
 import { HorizonLine } from "@/components/features/horizon-line";
 import { PhotoThumb } from "@/components/features/photo-thumb";
@@ -40,20 +41,6 @@ function fullDate(iso: string): string {
     year: "numeric",
   });
 }
-
-const STATUS_DOT: Record<RestorationStatus, string> = {
-  planned: "border-gold bg-gold",
-  active: "border-moss bg-moss",
-  completed: "border-forest bg-forest",
-  cancelled: "border-soil bg-soil",
-};
-
-const STATUS_BADGE: Record<RestorationStatus, string> = {
-  planned: "border-gold/30 bg-gold/15 text-forest",
-  active: "border-forest/15 bg-sage/35 text-forest",
-  completed: "border-forest/20 bg-forest/10 text-forest",
-  cancelled: "border-soil/30 bg-soil/15 text-moss",
-};
 
 function MonitoringList({ area }: { area: Area }) {
   return (

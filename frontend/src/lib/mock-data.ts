@@ -1,8 +1,6 @@
-export type RestorationStatus =
-  | "planned"
-  | "active"
-  | "completed"
-  | "cancelled";
+import { type RestorationStatus } from "./status";
+
+export type { RestorationStatus };
 
 export interface MonitoringPhoto {
   id: string;
@@ -462,10 +460,3 @@ export const DASHBOARD_STATS: DashboardStat[] = [
   { value: 89, suffix: "%", label: "sobrevivência média" },
   { value: 2401, label: "fotos no acervo" },
 ];
-
-export const STATUS_LABEL: Record<RestorationStatus, string> = {
-  planned: "Planejada",
-  active: "Em restauração",
-  completed: "Recuperada",
-  cancelled: "Cancelada",
-};

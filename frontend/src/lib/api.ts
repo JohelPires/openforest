@@ -209,6 +209,7 @@ export interface AreaRead {
   id: string;
   project_id: string;
   name: string;
+  goal?: string | null;
   size_hectares?: number | null;
   biome?: string | null;
   coordinates?: Record<string, unknown> | null;
@@ -220,4 +221,19 @@ export interface AreaRead {
 
 export function projectAreas(projectId: string): Promise<AreaRead[]> {
   return apiFetch<AreaRead[]>(`/projects/${projectId}/areas`, { auth: true });
+}
+
+export function getArea(areaId: string): Promise<AreaRead> {
+  return apiFetch<AreaRead>(`/areas/${areaId}`, { auth: true });
+}
+
+export function listAreaMonitorings(
+  areaId: string,
+  offset: number,
+  limit: number,
+): Promise<Paginated<MonitoringRead>> {
+  return apiFetch<Paginated<MonitoringRead>>(
+    `/areas/${areaId}/monitorings?offset=${offset}&limit=${limit}`,
+    { auth: true },
+  );
 }

@@ -4,6 +4,8 @@ import {
   ApiError,
   apiFetch,
   createProject,
+  getArea,
+  listAreaMonitorings,
   listProjects,
   login,
   logout,
@@ -332,5 +334,68 @@ describe("áreas de um projeto", () => {
     expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
       "Bearer abc",
     );
+  });
+});
+
+describe("área e monitoramentos", () => {
+  const area = {
+    id: "area-1",
+    project_id: "proj-1",
+    name: "Borrazóis",
+    goal: "Reconectar o fragmento florestal.",
+    size_hectares: 42,
+    biome: "Mata Atlântica",
+    restoration_status: "active",
+    created_at: "2024-05-01T00:00:00Z",
+    updated_at: "2024-05-01T00:00:00Z",
+  };
+
+  beforeEach(() => {
+    setSession(
+      { access_token: "abc", refresh_token: "def", token_type: "bearer" },
+      true,
+    );
+  });
+
+  it("busca uma área por id com autorização", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(area), { status: 200 })),
+    );
+
+    await expect(getArea("area-1")).resolves.toEqual(area);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/areas/area-1");
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+
+  it("lista monitoramentos paginados de uma área", async () => {
+    const body = {
+      items: [
+        {
+          id: "mon-1",
+          area_id: "area-1",
+          visit_date: "2024-06-01",
+          created_at: "2024-06-01T00:00:00Z",
+          updated_at: "2024-06-01T00:00:00Z",
+        },
+      ],
+      total: 12,
+      offset: 10,
+      limit: 10,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })),
+    );
+
+    const result = await listAreaMonitorings("area-1", 10, 10);
+
+    expect(result).toEqual(body);
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/areas/area-1/monitorings?offset=10&limit=10");
   });
 });

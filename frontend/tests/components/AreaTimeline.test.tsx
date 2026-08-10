@@ -117,4 +117,13 @@ describe("AreaTimeline", () => {
     const positions = dots.map((dot) => Number.parseFloat(dot.style.left));
     expect(Math.max(...positions)).toBeGreaterThan(0);
   });
+
+  it("torna o nome da área um link para a página da área", () => {
+    render(<AreaTimeline areas={areas} />);
+    const link = screen.getByRole("link", { name: "Borrazóis" });
+    expect(link).toHaveAttribute(
+      "href",
+      "/painel/projetos/proj-restauracao-norte/areas/area-a",
+    );
+  });
 });

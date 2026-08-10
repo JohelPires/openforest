@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 import { type Area, type Monitoring } from "@/lib/mock-data";
 import {
   STATUS_BADGE,
@@ -114,9 +115,14 @@ function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-gold">
             {area.biome}
           </p>
-          <h3 className="font-heading mt-1.5 text-2xl leading-tight tracking-tight text-forest">
-            {area.name}
-          </h3>
+          <Link
+            href={`/painel/projetos/${area.project_id}/areas/${area.id}`}
+            className="mt-1.5 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+          >
+            <h3 className="font-heading text-2xl leading-tight tracking-tight text-forest transition-colors hover:text-forest/80">
+              {area.name}
+            </h3>
+          </Link>
           <span
             className={cn(
               "mt-3 inline-block rounded-full border px-2.5 py-1 text-[11px] font-medium",

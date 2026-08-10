@@ -219,8 +219,15 @@ export interface AreaRead {
   updated_at: string;
 }
 
-export function projectAreas(projectId: string): Promise<AreaRead[]> {
-  return apiFetch<AreaRead[]>(`/projects/${projectId}/areas`, { auth: true });
+export function projectAreas(
+  projectId: string,
+  offset = 0,
+  limit = 100,
+): Promise<Paginated<AreaRead>> {
+  return apiFetch<Paginated<AreaRead>>(
+    `/projects/${projectId}/areas?offset=${offset}&limit=${limit}`,
+    { auth: true },
+  );
 }
 
 export function getArea(areaId: string): Promise<AreaRead> {

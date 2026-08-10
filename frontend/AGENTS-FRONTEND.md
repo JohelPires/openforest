@@ -224,7 +224,9 @@ apiFetch<T>('/v1/...') // -> /api/v1/...
 
 ## Backend API Reference
 
-Fonte da documentação do backend: http://localhost:8000/openapi.json
+Fonte da documentação do backend: http://localhost:8000/openapi.json (ou http://localhost:8000/docs no navegador).
+
+> **Contrato da API:** verifique sempre o Swagger/OpenAPI do backend **rodando** (`http://localhost:8000/openapi.json`), e não o código-fonte do backend neste worktree. O backend pode estar em execução a partir de outra branch/checkout, então o source local pode estar desatualizado em relação à API real.
 
 ### Autenticação
 

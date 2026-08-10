@@ -85,7 +85,7 @@ export function ProjectAreas({ projectId }: ProjectAreasProps) {
     );
   }
 
-  const areas = (data ?? []).map(toTimelineArea);
+  const areas = (data?.items ?? []).map(toTimelineArea);
 
   if (areas.length === 0) {
     return (

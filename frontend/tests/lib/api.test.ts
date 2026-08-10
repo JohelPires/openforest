@@ -320,16 +320,17 @@ describe("áreas de um projeto", () => {
     );
   });
 
-  it("busca as áreas do projeto com autorização", async () => {
+  it("busca as áreas paginadas do projeto com autorização", async () => {
+    const body = { items: areas, total: 1, offset: 0, limit: 100 };
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify(areas), { status: 200 })),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })),
     );
 
-    await expect(projectAreas("proj-1")).resolves.toEqual(areas);
+    await expect(projectAreas("proj-1")).resolves.toEqual(body);
 
     const [url, init] = vi.mocked(fetch).mock.calls[0];
-    expect(url).toBe("/api/v1/projects/proj-1/areas");
+    expect(url).toBe("/api/v1/projects/proj-1/areas?offset=0&limit=100");
     expect((init as RequestInit).method ?? "GET").toBe("GET");
     expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
       "Bearer abc",

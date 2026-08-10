@@ -79,7 +79,12 @@ describe("ProjectAreas", () => {
   afterEach(cleanup);
 
   it("renderiza a régua com as áreas do projeto", async () => {
-    projectAreasMock.mockResolvedValue(areas);
+    projectAreasMock.mockResolvedValue({
+      items: areas,
+      total: areas.length,
+      offset: 0,
+      limit: 100,
+    });
 
     renderSection();
 
@@ -93,7 +98,7 @@ describe("ProjectAreas", () => {
   });
 
   it("mostra convite vazio para projeto sem áreas", async () => {
-    projectAreasMock.mockResolvedValue([]);
+    projectAreasMock.mockResolvedValue({ items: [], total: 0, offset: 0, limit: 100 });
 
     renderSection();
 
@@ -106,7 +111,12 @@ describe("ProjectAreas", () => {
   });
 
   it("lista os monitoramentos recentes da área na timeline", async () => {
-    projectAreasMock.mockResolvedValue(areas);
+    projectAreasMock.mockResolvedValue({
+      items: areas,
+      total: areas.length,
+      offset: 0,
+      limit: 100,
+    });
 
     renderSection();
 

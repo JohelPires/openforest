@@ -2,7 +2,8 @@ import { CloudRain, Sun } from "lucide-react";
 import { PainelPageHeader } from "@/components/features/painel-page-header";
 import { InstrumentStrip } from "@/components/features/instrument-strip";
 import { StatRow } from "@/components/features/stat-row";
-import { StrataCore } from "@/components/features/strata-core";
+import { AreaTimeline } from "@/components/features/area-timeline";
+import { AREAS } from "@/lib/mock-data";
 import { CadernoCampo } from "@/components/features/caderno-campo";
 import { Reveal } from "@/components/reveal";
 
@@ -49,7 +50,7 @@ export default function PainelPage() {
         <StatRow />
       </Reveal>
 
-      <StrataCore />
+      <AreaTimeline areas={AREAS} />
 
       <CadernoCampo />
     </div>

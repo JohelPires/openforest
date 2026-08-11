@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { AREAS, STATUS_LABEL, type Area, type Monitoring, type RestorationStatus } from "@/lib/mock-data";
+import Link from "next/link";
+import { type Area, type Monitoring } from "@/lib/mock-data";
+import {
+  STATUS_BADGE,
+  STATUS_DOT,
+  STATUS_LABEL,
+  type RestorationStatus,
+} from "@/lib/status";
 import { Reveal } from "@/components/reveal";
 import { HorizonLine } from "@/components/features/horizon-line";
-import { PhotoThumb } from "@/components/features/photo-thumb";
+import {
+  MonitoringList,
+  type MonitoringListItem,
+} from "@/components/features/monitoring-list";
 import { cn } from "@/lib/utils";
 
 const DAY_MS = 86_400_000;
@@ -14,28 +24,13 @@ function toMs(date: string): number {
   return new Date(`${date}T12:00:00`).getTime();
 }
 
-const NOW_MS = Date.now();
-const START_MS = Math.min(...AREAS.map((area) => toMs(area.started_at)));
-const SPAN_MS = Math.max(NOW_MS - START_MS, DAY_MS);
-
-function pct(ms: number): number {
-  const value = Math.min(100, Math.max(0, ((ms - START_MS) / SPAN_MS) * 100));
-  return Number(value.toFixed(3));
+function currentMs(): number {
+  return Date.now();
 }
 
 const MONTHS = [
-  "jan",
-  "fev",
-  "mar",
-  "abr",
-  "mai",
-  "jun",
-  "jul",
-  "ago",
-  "set",
-  "out",
-  "nov",
-  "dez",
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
 ];
 
 function shortDate(iso: string): string {
@@ -51,92 +46,31 @@ function fullDate(iso: string): string {
   });
 }
 
-const YEAR_MARKS: { year: number; left: number }[] = (() => {
-  const first = new Date(START_MS).getFullYear();
-  const last = new Date(NOW_MS).getFullYear();
-  const marks: { year: number; left: number }[] = [];
-  for (let year = first; year <= last; year++) {
-    marks.push({ year, left: pct(new Date(year, 0, 1).getTime()) });
-  }
-  return marks;
-})();
-
-const STATUS_DOT: Record<RestorationStatus, string> = {
-  plantio_recente: "border-gold bg-gold",
-  em_restauracao: "border-moss bg-moss",
-  recuperada: "border-forest bg-forest",
-};
-
-const STATUS_BADGE: Record<RestorationStatus, string> = {
-  plantio_recente: "border-gold/30 bg-gold/15 text-forest",
-  em_restauracao: "border-forest/15 bg-sage/35 text-forest",
-  recuperada: "border-forest/20 bg-forest/10 text-forest",
-};
-
-function MonitoringList({ area }: { area: Area }) {
-  return (
-    <ul className="space-y-6">
-      {area.monitorings.map((monitoring) => (
-        <li key={monitoring.id} className="grid gap-3 sm:grid-cols-[auto_1fr] sm:gap-5">
-          <div className="flex gap-2 sm:flex-col">
-            {monitoring.photos.length > 0 ? (
-              monitoring.photos.slice(0, 2).map((photo) => (
-                <PhotoThumb
-                  key={photo.id}
-                  tone={photo.tone}
-                  label={photo.label}
-                  className="h-14 w-14 shrink-0 sm:h-16 sm:w-16"
-                />
-              ))
-            ) : (
-              <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-forest/20 font-mono text-[9px] uppercase tracking-wide text-moss/50">
-                sem foto
-              </span>
-            )}
-          </div>
-          <div>
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <span className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-gold">
-                {fullDate(monitoring.date)}
-              </span>
-              <span className="text-xs text-moss/70">· {monitoring.author}</span>
-            </div>
-            <p className="mt-1.5 text-sm leading-relaxed text-moss">
-              {monitoring.notes}
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <span className="font-mono text-xs text-forest">
-                {monitoring.seedling_count.toLocaleString("pt-BR")} mudas
-              </span>
-              <span className="font-mono text-xs text-forest">
-                {monitoring.avg_height.toLocaleString("pt-BR")} m médios
-              </span>
-              {monitoring.species.map((species) => (
-                <span
-                  key={species}
-                  className="rounded-full border border-forest/10 bg-forest/5 px-2 py-0.5 text-[11px] text-forest"
-                >
-                  {species}
-                </span>
-              ))}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
+function toListItems(area: Area): MonitoringListItem[] {
+  return area.monitorings.map((monitoring) => ({
+    id: monitoring.id,
+    area_id: area.id,
+    visit_date: monitoring.visit_date,
+    notes: monitoring.notes,
+    seedling_count: monitoring.seedling_count,
+    avg_height: monitoring.avg_height,
+    species_data: monitoring.species_data ?? null,
+    created_at: monitoring.created_at ?? "",
+    updated_at: monitoring.updated_at ?? "",
+    author: monitoring.author,
+    photos: monitoring.photos,
+  }));
 }
 
-function Band({
-  area,
-  expanded,
-  onToggle,
-}: {
+interface BandProps {
   area: Area;
   expanded: boolean;
   onToggle: () => void;
-}) {
+  yearMarks: { year: number; left: number }[];
+  pct: (ms: number) => number;
+}
 
+function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
   return (
     <section className="rounded-2xl border border-forest/10 bg-cream p-6 shadow-sm shadow-forest/5 sm:p-8">
       <div className="md:grid md:grid-cols-[240px_1fr] md:gap-8">
@@ -144,9 +78,14 @@ function Band({
           <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-gold">
             {area.biome}
           </p>
-          <h3 className="font-heading mt-1.5 text-2xl leading-tight tracking-tight text-forest">
-            {area.name}
-          </h3>
+          <Link
+            href={`/painel/projetos/${area.project_id}/areas/${area.id}`}
+            className="mt-1.5 inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+          >
+            <h3 className="font-heading text-2xl leading-tight tracking-tight text-forest transition-colors hover:text-forest/80">
+              {area.name}
+            </h3>
+          </Link>
           <span
             className={cn(
               "mt-3 inline-block rounded-full border px-2.5 py-1 text-[11px] font-medium",
@@ -167,7 +106,7 @@ function Band({
 
         <div className="mt-7 md:mt-0">
           <div className="relative h-16">
-            {YEAR_MARKS.filter((mark) => mark.left > 0.5 && mark.left < 99.5).map(
+            {yearMarks.filter((mark) => mark.left > 0.5 && mark.left < 99.5).map(
               (mark) => (
                 <span
                   key={mark.year}
@@ -192,11 +131,11 @@ function Band({
                 key={monitoring.id}
                 type="button"
                 onClick={onToggle}
-                aria-label={`${area.name}, visita de ${fullDate(monitoring.date)}. ${
+                aria-label={`${area.name}, visita de ${fullDate(monitoring.visit_date)}. ${
                   expanded ? "Recolher detalhes." : "Ver detalhes."
                 }`}
                 className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
-                style={{ left: `${pct(toMs(monitoring.date))}%` }}
+                style={{ left: `${pct(toMs(monitoring.visit_date))}%` }}
               >
                 <span
                   className={cn(
@@ -208,7 +147,7 @@ function Band({
                   )}
                 />
                 <span className="pointer-events-none absolute left-1/2 top-full mt-1.5 -translate-x-1/2 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.1em] text-moss/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-                  {shortDate(monitoring.date)}
+                  {shortDate(monitoring.visit_date)}
                 </span>
               </button>
             ))}
@@ -242,10 +181,12 @@ function Band({
           >
             <div className="overflow-hidden">
               <div className="mt-5 border-t border-forest/10 pt-5">
-                <blockquote className="mb-6 border-l-2 border-gold/50 pl-3 text-sm leading-relaxed text-moss/80">
-                  Objetivo: {area.goal}
-                </blockquote>
-                <MonitoringList area={area} />
+                {area.goal ? (
+                  <blockquote className="mb-6 border-l-2 border-gold/50 pl-3 text-sm leading-relaxed text-moss/80">
+                    Objetivo: {area.goal}
+                  </blockquote>
+                ) : null}
+                <MonitoringList items={toListItems(area)} />
               </div>
             </div>
           </div>
@@ -255,49 +196,94 @@ function Band({
   );
 }
 
-export function StrataCore() {
+interface AreaTimelineProps {
+  areas: Area[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  className?: string;
+  action?: ReactNode;
+}
+
+export function AreaTimeline({
+  areas,
+  eyebrow = "Perfil de monitoramento",
+  title = "Suas áreas, ao longo do tempo",
+  description = "Cada faixa é uma área. Os pontos são visitas de monitoramento plotadas na mesma régua de tempo — veja o ritmo da recuperação lado a lado.",
+  className,
+  action,
+}: AreaTimelineProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const time = useMemo(() => {
+    if (areas.length === 0) return null;
+    const nowMs = currentMs();
+    const startMs = Math.min(
+      ...areas.map((area) => toMs(area.started_at)),
+      ...areas.flatMap((area) => area.monitorings.map((m) => toMs(m.visit_date))),
+    );
+    const spanMs = Math.max(nowMs - startMs, DAY_MS);
+    const pct = (ms: number): number => {
+      const value = Math.min(100, Math.max(0, ((ms - startMs) / spanMs) * 100));
+      return Number(value.toFixed(3));
+    };
+    const yearMarks: { year: number; left: number }[] = [];
+    for (
+      let year = new Date(startMs).getFullYear();
+      year <= new Date(nowMs).getFullYear();
+      year++
+    ) {
+      yearMarks.push({ year, left: pct(new Date(year, 0, 1).getTime()) });
+    }
+    return { startMs, nowMs, pct, yearMarks };
+  }, [areas]);
 
   function toggleArea(id: string) {
     setExpandedId((current) => (current === id ? null : id));
   }
 
-  const latestMonitoring = AREAS.reduce<Monitoring | null>((latest, area) => {
+  if (!time) return null;
+
+  const latestMonitoring = areas.reduce<Monitoring | null>((latest, area) => {
     const areaLatest = area.monitorings[area.monitorings.length - 1];
     if (!areaLatest) return latest;
     if (!latest) return areaLatest;
-    return toMs(areaLatest.date) > toMs(latest.date) ? areaLatest : latest;
+    return toMs(areaLatest.visit_date) > toMs(latest.visit_date) ? areaLatest : latest;
   }, null);
 
   return (
-    <section aria-labelledby="strata-title" className="scroll-mt-24">
+    <section
+      aria-labelledby="strata-title"
+      className={cn("scroll-mt-24", className)}
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="font-mono text-xs font-medium uppercase tracking-[0.2em] text-gold">
-            Perfil de monitoramento
+            {eyebrow}
           </p>
           <h2
             id="strata-title"
             className="font-heading mt-3 text-2xl leading-[1.1] tracking-tight text-forest sm:text-3xl"
           >
-            Suas áreas, ao longo do tempo
+            {title}
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-moss">
-            Cada faixa é uma área. Os pontos são visitas de monitoramento
-            plotadas na mesma régua de tempo — veja o ritmo da recuperação
-            lado a lado.
+            {description}
           </p>
         </div>
 
-        <ul
-          aria-label="Legenda de status"
-          className="flex flex-wrap items-center gap-x-5 gap-y-2"
-        >
+        <div className="flex flex-col items-start gap-4 md:items-end">
+          {action ? <div className="shrink-0">{action}</div> : null}
+          <ul
+            aria-label="Legenda de status"
+            className="flex flex-wrap items-center gap-x-5 gap-y-2"
+          >
           {(
             [
-              ["plantio_recente", "Plantio recente"],
-              ["em_restauracao", "Em restauração"],
-              ["recuperada", "Recuperada"],
+              ["planned", "Planejada"],
+              ["active", "Em restauração"],
+              ["completed", "Recuperada"],
+              ["cancelled", "Cancelada"],
             ] as [RestorationStatus, string][]
           ).map(([status, label]) => (
             <li key={status} className="flex items-center gap-1.5 text-xs text-moss/80">
@@ -311,13 +297,14 @@ export function StrataCore() {
               {label}
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       </div>
 
       <div className="mt-8 hidden md:grid md:grid-cols-[240px_1fr] md:gap-8">
         <div />
         <div className="relative h-5">
-          {YEAR_MARKS.filter((mark) => mark.left > 2 && mark.left < 98).map(
+          {time.yearMarks.filter((mark) => mark.left > 2 && mark.left < 98).map(
             (mark) => (
               <div
                 key={mark.year}
@@ -341,15 +328,17 @@ export function StrataCore() {
       </div>
 
       <div className="mt-2 space-y-8">
-        {AREAS.map((area, index) => (
+        {areas.map((area, index) => (
           <Reveal key={area.id} delay={index * 80}>
             <div className="space-y-1.5">
               <Band
                 area={area}
                 expanded={expandedId === area.id}
                 onToggle={() => toggleArea(area.id)}
+                yearMarks={time.yearMarks}
+                pct={time.pct}
               />
-              {index < AREAS.length - 1 ? (
+              {index < areas.length - 1 ? (
                 <HorizonLine className="mx-1" />
               ) : null}
             </div>
@@ -360,7 +349,7 @@ export function StrataCore() {
       {latestMonitoring ? (
         <p className="mt-6 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-moss/50">
           <span aria-hidden="true" className="h-1 w-1 rounded-full bg-gold" />
-          Última atividade registrada em {fullDate(latestMonitoring.date)}
+          Última atividade registrada em {fullDate(latestMonitoring.visit_date)}
         </p>
       ) : null}
     </section>

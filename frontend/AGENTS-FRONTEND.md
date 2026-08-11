@@ -16,16 +16,16 @@ OpenForest é uma plataforma open source para monitoramento colaborativo de proj
 
 ## Tech Stack
 
-| Camada           | Tecnologia                               |
-|------------------|------------------------------------------|
-| Framework        | Next.js 16 (App Router)                  |
-| UI Library       | React 19                                 |
-| Linguagem        | TypeScript (strict mode)                 |
-| Estilização      | TailwindCSS                              |
-| Pacotes          | npm                                      |
-| Testes           | vitest + @testing-library/react          |
-| Lint             | ESLint                                   |
-| Formatação       | Prettier                                 |
+| Camada      | Tecnologia                      |
+| ----------- | ------------------------------- |
+| Framework   | Next.js 16 (App Router)         |
+| UI Library  | React 19                        |
+| Linguagem   | TypeScript (strict mode)        |
+| Estilização | TailwindCSS                     |
+| Pacotes     | npm                             |
+| Testes      | vitest + @testing-library/react |
+| Lint        | ESLint                          |
+| Formatação  | Prettier                        |
 
 ## Project Structure
 
@@ -133,13 +133,13 @@ export default async function ProjectsPage() {
 
 ```typescript
 // src/components/features/ProjectForm.tsx
-"use client";
+'use client'
 
-import { useState } from "react";
+import { useState } from 'react'
 
 export function ProjectForm() {
-  const [name, setName] = useState("");
-  // ...
+   const [name, setName] = useState('')
+   // ...
 }
 ```
 
@@ -164,32 +164,32 @@ export function Card({ children }: { children: React.ReactNode }) {
 
 ```typescript
 interface User {
-  id: string;
-  email: string;
+   id: string
+   email: string
 }
 
-type Status = "active" | "inactive" | "pending";
+type Status = 'active' | 'inactive' | 'pending'
 ```
 
 ### Naming
 
-| Item             | Convention        | Exemplo                |
-|------------------|-------------------|------------------------|
-| Componentes      | PascalCase        | `ProjectCard`          |
-| Funções          | camelCase         | `formatDate()`         |
-| Arquivos de componente | PascalCase | `ProjectCard.tsx`      |
-| Arquivos de utilidade  | camelCase | `api.ts`, `utils.ts`   |
-| Pastas (rota)    | kebab-case        | `/project-settings`    |
-| Pastas (código)  | camelCase         | `src/lib/`, `src/types/` |
+| Item                   | Convention | Exemplo                  |
+| ---------------------- | ---------- | ------------------------ |
+| Componentes            | PascalCase | `ProjectCard`            |
+| Funções                | camelCase  | `formatDate()`           |
+| Arquivos de componente | PascalCase | `ProjectCard.tsx`        |
+| Arquivos de utilidade  | camelCase  | `api.ts`, `utils.ts`     |
+| Pastas (rota)          | kebab-case | `/project-settings`      |
+| Pastas (código)        | camelCase  | `src/lib/`, `src/types/` |
 
 ### Imports
 
 ```typescript
 // Ordem: React → Next → libs → internos
-import { useState } from "react";
-import Link from "next/link";
-import { api } from "@/lib/api";
-import { Button } from "@/components/ui/Button";
+import { useState } from 'react'
+import Link from 'next/link'
+import { api } from '@/lib/api'
+import { Button } from '@/components/ui/Button'
 ```
 
 ## API Integration
@@ -197,14 +197,15 @@ import { Button } from "@/components/ui/Button";
 ### Base URL
 
 - Backend: `http://localhost:8000` — todas as rotas sob `/api/v1`.
-- O `next.config.ts` faz rewrite de `/api/:path*` → `${BACKEND_URL}/api/:path*`, então chamadas do browser usam **caminhos relativos** (`/api/v1/...`) — mesmo domínio, sem CORS.
-- Ajuste em produção via `BACKEND_URL` (server-side, usada pelo rewrite).
+- O `src/proxy.ts` reescreve `/api/:path*` → `${BACKEND_URL}/api/:path*` via `NextResponse.rewrite`, então chamadas do browser usam **caminhos relativos** (`/api/v1/...`) — mesmo domínio, sem CORS.
+- Ajuste em produção via `BACKEND_URL` (server-side, lida pelo proxy).
+- `next.config.ts` usa `skipTrailingSlashRedirect`/`skipProxyUrlNormalize` para o proxy preservar a barra final e a query string originais (evita redirects 308/307 que levariam o browser para o backend direto).
 
 ### API client (`src/lib/api.ts`)
 
 ```typescript
 // Chamadas do browser usam caminhos relativos (rewrite do next.config.ts)
-apiFetch<T>("/v1/...") // -> /api/v1/...
+apiFetch<T>('/v1/...') // -> /api/v1/...
 ```
 
 - `apiFetch<T>(path, { method, body, auth })` — `auth: true` adiciona `Authorization: Bearer <access_token>`.
@@ -223,36 +224,40 @@ apiFetch<T>("/v1/...") // -> /api/v1/...
 
 ## Backend API Reference
 
-Fonte: `/openapi.json` do backend (FastAPI). Base: `http://localhost:8000/api/v1`.
+Fonte da documentação do backend: http://localhost:8000/openapi.json (ou http://localhost:8000/docs no navegador).
+
+> **Contrato da API:** verifique sempre o Swagger/OpenAPI do backend **rodando** (`http://localhost:8000/openapi.json`), e não o código-fonte do backend neste worktree. O backend pode estar em execução a partir de outra branch/checkout, então o source local pode estar desatualizado em relação à API real.
+>
+> **Acesso restrito:** o worktree do frontend tem acesso apenas ao próprio código e à documentação Swagger. O source do backend (`backend/`) e demais pastas externas do monorepo **não são acessíveis** — todo entendimento da API deve vir do OpenAPI rodando. Não tente ler/editar arquivos fora de `frontend/`.
 
 ### Autenticação
 
-| Método | Rota                    | Body                        | Retorno                                        |
-|--------|-------------------------|-----------------------------|------------------------------------------------|
-| POST   | `/auth/register`        | `{name, email, password}`   | `{access_token, refresh_token, token_type}`    |
-| POST   | `/auth/login`           | `{email, password}`         | `{access_token, refresh_token, token_type}`    |
-| POST   | `/auth/refresh`         | `{refresh_token}`           | `{access_token, refresh_token, token_type}`    |
-| POST   | `/auth/logout`          | `{refresh_token}`           | `{msg}`                                        |
+| Método | Rota             | Body                      | Retorno                                     |
+| ------ | ---------------- | ------------------------- | ------------------------------------------- |
+| POST   | `/auth/register` | `{name, email, password}` | `{access_token, refresh_token, token_type}` |
+| POST   | `/auth/login`    | `{email, password}`       | `{access_token, refresh_token, token_type}` |
+| POST   | `/auth/refresh`  | `{refresh_token}`         | `{access_token, refresh_token, token_type}` |
+| POST   | `/auth/logout`   | `{refresh_token}`         | `{msg}`                                     |
 
 - Register/login/refresh retornam tokens (register já loga o usuário).
 - Erros conhecidos: `duplicate_email` (409), `invalid_credentials` (401), `token_expired`/`invalid_token` (401).
 
 ### Endpoints protegidos (exigem `Authorization: Bearer <access_token>`)
 
-| Método | Rota                                   | Observação                        |
-|--------|----------------------------------------|-----------------------------------|
-| GET/POST | `/projects/` (com barra final)        | Lista paginada / cria             |
-| GET/PATCH/DELETE | `/projects/{project_id}`       | CRUD                              |
-| GET/POST | `/organizations/` (com barra final)   | Lista paginada / cria             |
-| GET/PATCH/DELETE | `/organizations/{organization_id}` | CRUD                          |
-| GET/POST | `/projects/{project_id}/areas`        | Áreas de um projeto               |
-| GET/PATCH/DELETE | `/areas/{area_id}`              | CRUD                              |
-| GET/POST | `/areas/{area_id}/monitorings`        | Monitoramentos de uma área        |
-| GET/PATCH/DELETE | `/monitorings/{monitoring_id}`  | CRUD                              |
-| POST   | `/monitorings/{monitoring_id}/photos` | Upload multipart (`file`)         |
-| GET/DELETE | `/photos/{photo_id}`              | Detalhe / remover                 |
-| GET    | `/photos/{photo_id}/download`          | Download                          |
-| GET    | `/health`                              | Sem auth                          |
+| Método           | Rota                                  | Observação                 |
+| ---------------- | ------------------------------------- | -------------------------- |
+| GET/POST         | `/projects/` (com barra final)        | Lista paginada / cria      |
+| GET/PATCH/DELETE | `/projects/{project_id}`              | CRUD                       |
+| GET/POST         | `/organizations/` (com barra final)   | Lista paginada / cria      |
+| GET/PATCH/DELETE | `/organizations/{organization_id}`    | CRUD                       |
+| GET/POST         | `/projects/{project_id}/areas`        | Áreas de um projeto        |
+| GET/PATCH/DELETE | `/areas/{area_id}`                    | CRUD                       |
+| GET/POST         | `/areas/{area_id}/monitorings`        | Monitoramentos de uma área |
+| GET/PATCH/DELETE | `/monitorings/{monitoring_id}`        | CRUD                       |
+| POST             | `/monitorings/{monitoring_id}/photos` | Upload multipart (`file`)  |
+| GET/DELETE       | `/photos/{photo_id}`                  | Detalhe / remover          |
+| GET              | `/photos/{photo_id}/download`         | Download                   |
+| GET              | `/health`                             | Sem auth                   |
 
 - Listas paginadas usam `{items, total, offset, limit}` (query `offset`/`limit`, máximo 100).
 - Consultas por id usam UUID.
@@ -274,7 +279,7 @@ Fonte: `/openapi.json` do backend (FastAPI). Base: `http://localhost:8000/api/v1
 BACKEND_URL=http://localhost:8000
 ```
 
-- `BACKEND_URL` é lida pelo `next.config.ts` (rewrite `/api/:path*`). Não é exposta ao browser.
+- `BACKEND_URL` é lida pelo `src/proxy.ts` (rewrite `/api/:path*`). Não é exposta ao browser.
 - O cliente nunca usa URL absoluta do backend — sempre caminhos relativos `/api/v1/...`.
 
 ## Testing
@@ -285,21 +290,21 @@ vitest + @testing-library/react.
 
 ```typescript
 // tests/setup.ts
-import "@testing-library/jest-dom/vitest";
+import '@testing-library/jest-dom/vitest'
 ```
 
 ### Fixtures
 
 ```typescript
 // tests/helpers.tsx
-import { render, type RenderOptions } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { render, type RenderOptions } from '@testing-library/react'
+import { type ReactElement } from 'react'
 
 function customRender(ui: ReactElement, options?: RenderOptions) {
-  return render(ui, { ...options });
+   return render(ui, { ...options })
 }
 
-export { customRender as render };
+export { customRender as render }
 ```
 
 ### Test Example

@@ -29,7 +29,7 @@ function fullDate(iso: string): string {
 const RECENT = AREAS.flatMap((area) =>
   area.monitorings.map((monitoring) => ({ ...monitoring, areaName: area.name }))
 )
-  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
   .slice(0, 5);
 
 export function CadernoCampo() {
@@ -65,15 +65,15 @@ export function CadernoCampo() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <span className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-gold">
-                  {fullDate(entry.date)}
+                  {fullDate(entry.visit_date)}
                 </span>
                 <span className="text-xs text-moss/70">
                   {entry.areaName} · {entry.author}
                 </span>
               </div>
               <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-moss/50 sm:inline">
-                {MONTHS[new Date(`${entry.date}T12:00:00`).getMonth()]}/
-                {String(new Date(`${entry.date}T12:00:00`).getFullYear()).slice(2)}
+                {MONTHS[new Date(`${entry.visit_date}T12:00:00`).getMonth()]}/
+                {String(new Date(`${entry.visit_date}T12:00:00`).getFullYear()).slice(2)}
               </span>
             </div>
             <div className="flex items-start justify-between gap-4">

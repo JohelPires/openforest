@@ -7,11 +7,16 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { ApiError, me, type MeOrganization, type MeRead } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { getCachedUser, setCachedUser } from "@/lib/user";
+import {
+  getCachedUser,
+  setCachedUser,
+  subscribeUserCache,
+} from "@/lib/user";
 
 interface UserContextValue {
   user: MeRead | null;
@@ -23,7 +28,12 @@ const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<MeRead | null>(() => getCachedUser());
+  const cachedUser = useSyncExternalStore(
+    subscribeUserCache,
+    getCachedUser,
+    () => null,
+  );
+  const [user, setUser] = useState<MeRead | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,9 +61,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
   }, [router]);
 
+  const resolvedUser = user ?? cachedUser;
+
   const value = useMemo<UserContextValue>(
-    () => ({ user, organization: user?.organization ?? null, loading }),
-    [user, loading],
+    () => ({
+      user: resolvedUser,
+      organization: resolvedUser?.organization ?? null,
+      loading,
+    }),
+    [resolvedUser, loading],
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

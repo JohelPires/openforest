@@ -12,7 +12,10 @@ import {
 } from "@/lib/status";
 import { Reveal } from "@/components/reveal";
 import { HorizonLine } from "@/components/features/horizon-line";
-import { PhotoThumb } from "@/components/features/photo-thumb";
+import {
+  MonitoringList,
+  type MonitoringListItem,
+} from "@/components/features/monitoring-list";
 import { cn } from "@/lib/utils";
 
 const DAY_MS = 86_400_000;
@@ -43,60 +46,20 @@ function fullDate(iso: string): string {
   });
 }
 
-function MonitoringList({ area }: { area: Area }) {
-  return (
-    <ul className="space-y-6">
-      {area.monitorings.map((monitoring) => (
-        <li key={monitoring.id} className="grid gap-3 sm:grid-cols-[auto_1fr] sm:gap-5">
-          <div className="flex gap-2 sm:flex-col">
-            {monitoring.photos.length > 0 ? (
-              monitoring.photos.slice(0, 2).map((photo) => (
-                <PhotoThumb
-                  key={photo.id}
-                  tone={photo.tone}
-                  label={photo.label}
-                  className="h-14 w-14 shrink-0 sm:h-16 sm:w-16"
-                />
-              ))
-            ) : (
-              <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-forest/20 font-mono text-[9px] uppercase tracking-wide text-moss/50">
-                sem foto
-              </span>
-            )}
-          </div>
-          <div>
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <span className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-gold">
-                {fullDate(monitoring.visit_date)}
-              </span>
-              {monitoring.author ? (
-                <span className="text-xs text-moss/70">· {monitoring.author}</span>
-              ) : null}
-            </div>
-            <p className="mt-1.5 text-sm leading-relaxed text-moss">
-              {monitoring.notes}
-            </p>
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-              <span className="font-mono text-xs text-forest">
-                {monitoring.seedling_count.toLocaleString("pt-BR")} mudas
-              </span>
-              <span className="font-mono text-xs text-forest">
-                {monitoring.avg_height.toLocaleString("pt-BR")} m médios
-              </span>
-              {Object.keys(monitoring.species_data ?? {}).map((species) => (
-                <span
-                  key={species}
-                  className="rounded-full border border-forest/10 bg-forest/5 px-2 py-0.5 text-[11px] text-forest"
-                >
-                  {species}
-                </span>
-              ))}
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
+function toListItems(area: Area): MonitoringListItem[] {
+  return area.monitorings.map((monitoring) => ({
+    id: monitoring.id,
+    area_id: area.id,
+    visit_date: monitoring.visit_date,
+    notes: monitoring.notes,
+    seedling_count: monitoring.seedling_count,
+    avg_height: monitoring.avg_height,
+    species_data: monitoring.species_data ?? null,
+    created_at: monitoring.created_at ?? "",
+    updated_at: monitoring.updated_at ?? "",
+    author: monitoring.author,
+    photos: monitoring.photos,
+  }));
 }
 
 interface BandProps {
@@ -223,7 +186,7 @@ function Band({ area, expanded, onToggle, yearMarks, pct }: BandProps) {
                     Objetivo: {area.goal}
                   </blockquote>
                 ) : null}
-                <MonitoringList area={area} />
+                <MonitoringList items={toListItems(area)} />
               </div>
             </div>
           </div>

@@ -108,6 +108,28 @@ describe("AreaDetailPage", () => {
     ).toHaveAttribute("href", "/painel/projetos/proj-1");
   });
 
+  it("renderiza a pré-visualização da visão de satélite", async () => {
+    apiFetchMock.mockResolvedValue(project);
+    getAreaMock.mockResolvedValue(area);
+    listAreaMonitoringsMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      offset: 0,
+      limit: 10,
+    });
+
+    renderPage();
+
+    expect(
+      await screen.findByRole("heading", { name: "Visão de satélite" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pré-visualização")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mata Atlântica · 42 ha/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("coordenadas em breve")).toBeInTheDocument();
+  });
+
   it("navega para a próxima página e busca com novo offset", async () => {
     apiFetchMock.mockResolvedValue(project);
     getAreaMock.mockResolvedValue(area);

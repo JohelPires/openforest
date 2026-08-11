@@ -247,6 +247,15 @@ export interface AreaRead {
   updated_at: string;
 }
 
+export interface AreaCreate {
+  name: string;
+  goal?: string | null;
+  size_hectares?: number | null;
+  biome?: string | null;
+  coordinates?: Record<string, unknown> | null;
+  restoration_status?: RestorationStatus;
+}
+
 export function projectAreas(
   projectId: string,
   offset = 0,
@@ -256,6 +265,17 @@ export function projectAreas(
     `/projects/${projectId}/areas?offset=${offset}&limit=${limit}`,
     { auth: true },
   );
+}
+
+export function createArea(
+  projectId: string,
+  input: AreaCreate,
+): Promise<AreaRead> {
+  return apiFetch<AreaRead>(`/projects/${projectId}/areas`, {
+    method: "POST",
+    body: input,
+    auth: true,
+  });
 }
 
 export function getArea(areaId: string): Promise<AreaRead> {

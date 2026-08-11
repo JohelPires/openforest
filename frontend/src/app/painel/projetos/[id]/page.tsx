@@ -151,7 +151,7 @@ export default function ProjectDetailPage() {
             ) : null}
          </dl>
 
-         <ProjectAreas projectId={params.id} />
+         <ProjectAreas projectId={params.id} canCreate={canManage} />
       </div>
    )
 }

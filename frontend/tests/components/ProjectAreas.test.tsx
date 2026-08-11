@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectAreas } from "@/components/features/project-areas";
 import type { AreaRead } from "@/lib/api";
 
-const { projectAreasMock } = vi.hoisted(() => ({
+const { projectAreasMock, createAreaMock } = vi.hoisted(() => ({
   projectAreasMock: vi.fn(),
+  createAreaMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -14,6 +15,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   return {
     ...actual,
     projectAreas: projectAreasMock,
+    createArea: createAreaMock,
   };
 });
 
@@ -58,7 +60,7 @@ const areas: AreaRead[] = [
   },
 ];
 
-function renderSection() {
+function renderSection(canCreate = false) {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false, staleTime: 0 },
@@ -66,7 +68,7 @@ function renderSection() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <ProjectAreas projectId="proj-restauracao-norte" />
+      <ProjectAreas projectId="proj-restauracao-norte" canCreate={canCreate} />
     </QueryClientProvider>,
   );
 }
@@ -74,6 +76,7 @@ function renderSection() {
 describe("ProjectAreas", () => {
   beforeEach(() => {
     projectAreasMock.mockReset();
+    createAreaMock.mockReset();
   });
 
   afterEach(cleanup);
@@ -140,5 +143,68 @@ describe("ProjectAreas", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /não foi possível carregar as áreas/i,
     );
+  });
+
+  it("cadastra a primeira área a partir do estado vazio", async () => {
+    projectAreasMock
+      .mockResolvedValueOnce({ items: [], total: 0, offset: 0, limit: 100 })
+      .mockResolvedValueOnce({
+        items: areas,
+        total: areas.length,
+        offset: 0,
+        limit: 100,
+      });
+    createAreaMock.mockResolvedValue(areas[0]);
+    const user = userEvent.setup();
+
+    renderSection(true);
+
+    await screen.findByText("As áreas deste projeto aparecem aqui");
+    await user.click(
+      screen.getByRole("button", { name: "Cadastrar primeira área" }),
+    );
+    await user.type(screen.getByLabelText("Nome da área"), "Borrazóis");
+    await user.click(screen.getByRole("button", { name: "Criar área" }));
+
+    await waitFor(() => {
+      expect(createAreaMock).toHaveBeenCalledWith(
+        "proj-restauracao-norte",
+        expect.objectContaining({ name: "Borrazóis" }),
+      );
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Áreas do projeto" }),
+    ).toBeInTheDocument();
+  });
+
+  it("oferece criar área na régua quando o usuário pode gerenciar", async () => {
+    projectAreasMock.mockResolvedValue({
+      items: areas,
+      total: areas.length,
+      offset: 0,
+      limit: 100,
+    });
+
+    renderSection(true);
+
+    expect(
+      await screen.findByRole("button", { name: "Criar nova área" }),
+    ).toBeInTheDocument();
+  });
+
+  it("esconde a ação de criar área para quem não pode gerenciar", async () => {
+    projectAreasMock.mockResolvedValue({
+      items: areas,
+      total: areas.length,
+      offset: 0,
+      limit: 100,
+    });
+
+    renderSection();
+
+    await screen.findByRole("heading", { name: "Áreas do projeto" });
+    expect(
+      screen.queryByRole("button", { name: "Criar nova área" }),
+    ).not.toBeInTheDocument();
   });
 });

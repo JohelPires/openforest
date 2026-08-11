@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { type Area, type Monitoring } from "@/lib/mock-data";
@@ -202,6 +202,7 @@ interface AreaTimelineProps {
   title?: string;
   description?: string;
   className?: string;
+  action?: ReactNode;
 }
 
 export function AreaTimeline({
@@ -210,6 +211,7 @@ export function AreaTimeline({
   title = "Suas áreas, ao longo do tempo",
   description = "Cada faixa é uma área. Os pontos são visitas de monitoramento plotadas na mesma régua de tempo — veja o ritmo da recuperação lado a lado.",
   className,
+  action,
 }: AreaTimelineProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -270,10 +272,12 @@ export function AreaTimeline({
           </p>
         </div>
 
-        <ul
-          aria-label="Legenda de status"
-          className="flex flex-wrap items-center gap-x-5 gap-y-2"
-        >
+        <div className="flex flex-col items-start gap-4 md:items-end">
+          {action ? <div className="shrink-0">{action}</div> : null}
+          <ul
+            aria-label="Legenda de status"
+            className="flex flex-wrap items-center gap-x-5 gap-y-2"
+          >
           {(
             [
               ["planned", "Planejada"],
@@ -293,7 +297,8 @@ export function AreaTimeline({
               {label}
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
       </div>
 
       <div className="mt-8 hidden md:grid md:grid-cols-[240px_1fr] md:gap-8">

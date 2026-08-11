@@ -1,13 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Map } from "lucide-react";
 import { AreaTimeline } from "@/components/features/area-timeline";
-import { projectAreas, type AreaRead, type MonitoringRead } from "@/lib/api";
+import {
+  NewAreaDialog,
+  type NewAreaInput,
+} from "@/components/features/new-area-dialog";
+import { createArea, projectAreas, type AreaRead, type MonitoringRead } from "@/lib/api";
 import type { Area, Monitoring } from "@/lib/mock-data";
 
 interface ProjectAreasProps {
   projectId: string;
+  canCreate?: boolean;
 }
 
 function toTimelineMonitoring(monitoring: MonitoringRead): Monitoring {
@@ -50,10 +55,19 @@ function toTimelineArea(area: AreaRead): Area {
   };
 }
 
-export function ProjectAreas({ projectId }: ProjectAreasProps) {
+export function ProjectAreas({ projectId, canCreate = false }: ProjectAreasProps) {
+  const queryClient = useQueryClient();
+
   const { data, isPending, isError } = useQuery({
     queryKey: ["areas", projectId],
     queryFn: () => projectAreas(projectId),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (input: NewAreaInput) => createArea(projectId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["areas", projectId] });
+    },
   });
 
   if (isPending) {
@@ -100,6 +114,14 @@ export function ProjectAreas({ projectId }: ProjectAreasProps) {
           Cadastre as áreas de restauração do projeto e elas entram na régua de
           monitoramento, com as visitas de campo ao longo do tempo.
         </p>
+        {canCreate ? (
+          <NewAreaDialog
+            variant="band"
+            onCreate={async (input: NewAreaInput) => {
+              await mutation.mutateAsync(input);
+            }}
+          />
+        ) : null}
       </section>
     );
   }
@@ -110,6 +132,16 @@ export function ProjectAreas({ projectId }: ProjectAreasProps) {
       eyebrow="Restauração"
       title="Áreas do projeto"
       description="Cada faixa é uma área deste projeto. Os pontos são visitas de monitoramento plotadas na mesma régua de tempo."
+      action={
+        canCreate ? (
+          <NewAreaDialog
+            variant="button"
+            onCreate={async (input: NewAreaInput) => {
+              await mutation.mutateAsync(input);
+            }}
+          />
+        ) : undefined
+      }
     />
   );
 }

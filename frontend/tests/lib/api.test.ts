@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
   apiFetch,
+  createArea,
   createProject,
   deleteProject,
   getArea,
@@ -378,6 +379,31 @@ describe("áreas de um projeto", () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe("/api/v1/projects/proj-1/areas?offset=0&limit=100");
     expect((init as RequestInit).method ?? "GET").toBe("GET");
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+
+  it("cria uma área com POST e autorização", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(areas[0]), { status: 200 })),
+    );
+
+    const input = {
+      name: "Borrazóis",
+      goal: "Reconectar o fragmento florestal.",
+      size_hectares: 42,
+      biome: "Mata Atlântica",
+      restoration_status: "planned" as const,
+    };
+
+    await expect(createArea("proj-1", input)).resolves.toEqual(areas[0]);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/projects/proj-1/areas");
+    expect((init as RequestInit).method).toBe("POST");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual(input);
     expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
       "Bearer abc",
     );

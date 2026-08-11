@@ -4,10 +4,12 @@ from uuid import UUID
 from sqlmodel import SQLModel
 
 from openforest.api.models.area import RestorationStatus
+from openforest.api.schemas.monitoring import MonitoringRead
 
 
 class AreaCreate(SQLModel):
     name: str
+    goal: str | None = None
     size_hectares: float | None = None
     biome: str | None = None
     coordinates: dict[str, object] | None = None
@@ -19,10 +21,12 @@ class AreaRead(AreaCreate):
     project_id: UUID
     created_at: datetime
     updated_at: datetime
+    recent_monitorings: list[MonitoringRead] = []
 
 
 class AreaUpdate(SQLModel):
     name: str | None = None
+    goal: str | None = None
     size_hectares: float | None = None
     biome: str | None = None
     coordinates: dict[str, object] | None = None

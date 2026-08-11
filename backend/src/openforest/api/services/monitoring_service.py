@@ -1,7 +1,8 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlalchemy import text
+from sqlmodel import Session, func, select
 
 from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
@@ -46,12 +47,26 @@ def get_monitoring(
 
 
 def list_monitorings(
-    session: Session, area_id: UUID, organization_id: UUID | None = None
-) -> list[Monitoring]:
-    stmt = select(Monitoring).join(Area).join(Project).where(Monitoring.area_id == area_id)
+    session: Session,
+    area_id: UUID,
+    offset: int,
+    limit: int,
+    organization_id: UUID | None = None,
+) -> tuple[list[Monitoring], int]:
+    count_stmt = select(func.count()).select_from(Monitoring).join(Area).join(Project)
+    stmt = (
+        select(Monitoring)
+        .join(Area)
+        .join(Project)
+        .where(Monitoring.area_id == area_id)
+        .order_by(text("monitoring.visit_date desc"), text("monitoring.created_at desc"))
+    )
     if organization_id is not None:
+        count_stmt = count_stmt.where(Project.organization_id == organization_id)
         stmt = stmt.where(Project.organization_id == organization_id)
-    return list(session.exec(stmt).all())
+    total = session.exec(count_stmt).one()
+    items = session.exec(stmt.offset(offset).limit(limit)).all()
+    return list(items), total
 
 
 def update_monitoring(

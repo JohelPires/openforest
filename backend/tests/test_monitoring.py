@@ -150,7 +150,7 @@ def test_create_monitoring_invalid_area(client: TestClient, auth_headers: dict) 
 def test_list_monitorings_empty(client: TestClient, area: Area, auth_headers: dict) -> None:
     response = client.get(f"/api/v1/areas/{area.id}/monitorings", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "total": 0, "offset": 0, "limit": 20}
 
 
 def test_list_monitorings_by_area(
@@ -167,7 +167,9 @@ def test_list_monitorings_by_area(
         headers=auth_headers,
     )
     response = client.get(f"/api/v1/areas/{area.id}/monitorings", headers=auth_headers)
-    assert len(response.json()) == 2
+    data = response.json()
+    assert len(data["items"]) == 2
+    assert data["total"] == 2
 
 
 def test_list_monitorings_scoped_to_area(
@@ -196,8 +198,55 @@ def test_list_monitorings_scoped_to_area(
     )
 
     response = client.get(f"/api/v1/areas/{area.id}/monitorings", headers=auth_headers)
-    assert len(response.json()) == 1
-    assert response.json()[0]["visit_date"] == "2026-07-01"
+    data = response.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0]["visit_date"] == "2026-07-01"
+
+
+def test_list_monitorings_pagination(
+    client: TestClient, area: Area, auth_headers: dict, manager_membership: UserOrganization
+) -> None:
+    for visit_date in ["2026-05-01", "2026-06-01", "2026-07-01"]:
+        client.post(
+            f"/api/v1/areas/{area.id}/monitorings",
+            json={"visit_date": visit_date},
+            headers=auth_headers,
+        )
+
+    page_one = client.get(
+        f"/api/v1/areas/{area.id}/monitorings?offset=0&limit=2", headers=auth_headers
+    ).json()
+    assert len(page_one["items"]) == 2
+    assert page_one["total"] == 3
+    assert [item["visit_date"] for item in page_one["items"]] == ["2026-07-01", "2026-06-01"]
+
+    page_two = client.get(
+        f"/api/v1/areas/{area.id}/monitorings?offset=2&limit=2", headers=auth_headers
+    ).json()
+    assert len(page_two["items"]) == 1
+    assert page_two["total"] == 3
+    assert page_two["items"][0]["visit_date"] == "2026-05-01"
+
+
+def test_list_monitorings_invalid_pagination(
+    client: TestClient, area: Area, auth_headers: dict
+) -> None:
+    assert (
+        client.get(f"/api/v1/areas/{area.id}/monitorings?limit=0", headers=auth_headers).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            f"/api/v1/areas/{area.id}/monitorings?limit=101", headers=auth_headers
+        ).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            f"/api/v1/areas/{area.id}/monitorings?offset=-1", headers=auth_headers
+        ).status_code
+        == 422
+    )
 
 
 def test_get_monitoring(
@@ -284,7 +333,8 @@ def test_volunteer_can_create_monitoring(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=volunteer.id, organization_id=organization.id,
+            user_id=volunteer.id,
+            organization_id=organization.id,
             role=UserOrganizationRole.volunteer,
         )
     )
@@ -315,7 +365,8 @@ def test_viewer_cannot_create_monitoring(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=viewer.id, organization_id=organization.id,
+            user_id=viewer.id,
+            organization_id=organization.id,
             role=UserOrganizationRole.viewer,
         )
     )
@@ -354,7 +405,8 @@ def test_volunteer_cannot_update_monitoring(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=volunteer.id, organization_id=organization.id,
+            user_id=volunteer.id,
+            organization_id=organization.id,
             role=UserOrganizationRole.volunteer,
         )
     )
@@ -388,7 +440,8 @@ def test_user_cannot_read_other_org_monitoring(
     session.commit()
     session.add(
         UserOrganization(
-            user_id=other_user.id, organization_id=other_org.id,
+            user_id=other_user.id,
+            organization_id=other_org.id,
             role=UserOrganizationRole.manager,
         )
     )

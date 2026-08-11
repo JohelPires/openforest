@@ -8,6 +8,7 @@ services:
 
       volumes:
          - ./backend/src:/app/src
+         - ./backend/scripts:/app/scripts
 
       ports:
          - '${BACKEND_PORT}:8000'

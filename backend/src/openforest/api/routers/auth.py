@@ -4,11 +4,16 @@ from fastapi import APIRouter, HTTPException
 from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlmodel import select
 
+from openforest.api.dependencies.auth import CurrentUserDep
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.infrastructure.redis import blacklist_token, is_token_blacklisted
+from openforest.api.models.organization import Organization
 from openforest.api.models.user import User
+from openforest.api.models.user_organization import UserOrganization
 from openforest.api.schemas.auth import (
     LoginRequest,
+    MeOrganization,
+    MeRead,
     RefreshRequest,
     Token,
     UserCreate,
@@ -59,6 +64,31 @@ def login(session: SessionDep, data: LoginRequest) -> Token:
             detail=[{"msg": "Email ou senha inválidos", "type": "invalid_credentials"}],
         )
     return _generate_tokens(str(user.id))
+
+
+@router.get("/me", response_model=MeRead)
+def me(session: SessionDep, current_user: CurrentUserDep) -> MeRead:
+    organization: MeOrganization | None = None
+    if not current_user.is_superuser:
+        membership = session.exec(
+            select(UserOrganization).where(UserOrganization.user_id == current_user.id)
+        ).first()
+        if membership is not None:
+            org = session.get(Organization, membership.organization_id)
+            if org is not None:
+                organization = MeOrganization(
+                    id=org.id,
+                    name=org.name,
+                    role=membership.role,
+                )
+    return MeRead(
+        id=current_user.id,
+        name=current_user.name,
+        email=current_user.email,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
+        organization=organization,
+    )
 
 
 @router.post("/refresh", response_model=Token)

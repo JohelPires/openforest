@@ -136,6 +136,12 @@ uv lock
 # Migrações (Alembic via SQLModel)
 alembic revision --autogenerate -m "descrição"
 alembic upgrade head
+
+# Seed de dados de desenvolvimento
+uv run python scripts/seed.py            # popula dados realistas (idempotente)
+uv run python scripts/seed.py --reset    # limpa o banco e popula do zero
+uv run python scripts/seed.py --no-photos --password "outra-senha"
+docker compose exec backend uv run python scripts/seed.py --reset  # via container
 ```
 
 ## Coding Conventions
@@ -305,27 +311,69 @@ require_area_role(area_id, UserOrganizationRole.volunteer)  # monitoramentos/fot
 
 ### Setup
 
-pytest + httpx TestClient. Fixtures globais em `conftest.py`.
+pytest + httpx TestClient. Os testes rodam contra um banco PostgreSQL dedicado (`/openforest_test`, derivado de `settings.database_url`). O boilerplate de fixtures (`test_engine`, `create_tables`, `session`, `client`) é replicado por arquivo de teste — copie do arquivo sendo editado.
 
 ### Fixtures
 
 ```python
+from urllib.parse import urlparse, urlunparse
+
+import pytest
+from sqlmodel import Session, SQLModel, create_engine
+
+from openforest.api.config import settings
+
+parsed = urlparse(settings.database_url)
+test_db_url = urlunparse(parsed._replace(path="/openforest_test"))
+test_engine = create_engine(test_db_url)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def create_tables():
+    SQLModel.metadata.create_all(test_engine)
+    yield
+    SQLModel.metadata.drop_all(test_engine)
+
+
 @pytest.fixture
 def session():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
+    connection = test_engine.connect()
+    transaction = connection.begin()
+
+    session = Session(bind=connection)
+
+    session.begin_nested()
+
+    def patched_commit():
+        session.flush()
+        session.begin_nested()
+
+    session.commit = patched_commit
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
+
 
 @pytest.fixture
 def client(session):
+    from openforest.api.infrastructure.database import get_session
+    from openforest.api.main import app
+
     app.dependency_overrides[get_session] = lambda: session
     with TestClient(app) as c:
         yield c
+    app.dependency_overrides.clear()
+
 
 @pytest.fixture
 def auth_headers(client):
-    response = client.post("/v1/auth/login", json={"email": "test@test.com", "password": "123"})
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Test User", "email": "test@test.com", "password": "secret123"},
+    )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 ```

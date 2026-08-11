@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 
 from openforest.api.dependencies.auth import CurrentOrgDep, CurrentUserDep
+from openforest.api.dependencies.pagination import PaginationDep
 from openforest.api.dependencies.permissions import check_area_role
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.models.monitoring import Monitoring
@@ -12,6 +13,7 @@ from openforest.api.schemas.monitoring import (
     MonitoringRead,
     MonitoringUpdate,
 )
+from openforest.api.schemas.pagination import Paginated
 from openforest.api.services.monitoring_service import (
     create_monitoring,
     delete_monitoring,
@@ -23,15 +25,19 @@ from openforest.api.services.monitoring_service import (
 router = APIRouter(tags=["monitoramentos"])
 
 
-@router.get("/areas/{area_id}/monitorings", response_model=list[MonitoringRead])
+@router.get("/areas/{area_id}/monitorings", response_model=Paginated[MonitoringRead])
 def list_monitorings_route(
     session: SessionDep,
     current_user: CurrentUserDep,
     current_org: CurrentOrgDep,
     area_id: UUID,
-) -> list[Monitoring]:
+    pagination: PaginationDep,
+) -> Paginated[Monitoring]:
     organization_id = current_org.organization_id if current_org else None
-    return list_monitorings(session, area_id, organization_id)
+    items, total = list_monitorings(
+        session, area_id, pagination.offset, pagination.limit, organization_id
+    )
+    return Paginated(items=items, total=total, offset=pagination.offset, limit=pagination.limit)
 
 
 @router.post("/areas/{area_id}/monitorings", response_model=MonitoringRead)

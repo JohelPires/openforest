@@ -1,11 +1,15 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlalchemy import text
+from sqlmodel import Session, func, select
 
 from openforest.api.models.area import Area
+from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.project import Project
-from openforest.api.schemas.area import AreaCreate, AreaUpdate
+from openforest.api.schemas.area import AreaCreate, AreaRead, AreaUpdate
+
+RECENT_MONITORINGS_LIMIT = 10
 
 
 def create_area(
@@ -34,9 +38,7 @@ def create_area(
     return area
 
 
-def get_area(
-    session: Session, area_id: UUID, organization_id: UUID | None = None
-) -> Area | None:
+def get_area(session: Session, area_id: UUID, organization_id: UUID | None = None) -> Area | None:
     stmt = select(Area).join(Project).where(Area.id == area_id)
     if organization_id is not None:
         stmt = stmt.where(Project.organization_id == organization_id)
@@ -44,12 +46,54 @@ def get_area(
 
 
 def list_areas(
-    session: Session, project_id: UUID, organization_id: UUID | None = None
-) -> list[Area]:
-    stmt = select(Area).join(Project).where(Area.project_id == project_id)
+    session: Session,
+    project_id: UUID,
+    offset: int,
+    limit: int,
+    organization_id: UUID | None = None,
+) -> tuple[list[AreaRead], int]:
+    count_stmt = select(func.count()).select_from(Area).join(Project)
+    stmt = (
+        select(Area)
+        .join(Project)
+        .where(Area.project_id == project_id)
+        .order_by(text("area.created_at desc"), text("area.id desc"))
+    )
+    if organization_id is not None:
+        count_stmt = count_stmt.where(Project.organization_id == organization_id)
+        stmt = stmt.where(Project.organization_id == organization_id)
+    total = session.exec(count_stmt).one()
+    areas = list(session.exec(stmt.offset(offset).limit(limit)).all())
+    if not areas:
+        return [], total
+    recent_by_area = _recent_monitorings_by_area(
+        session, [area.id for area in areas], organization_id
+    )
+    return [
+        AreaRead(**area.model_dump(), recent_monitorings=recent_by_area.get(area.id, []))
+        for area in areas
+    ], total
+
+
+def _recent_monitorings_by_area(
+    session: Session, area_ids: list[UUID], organization_id: UUID | None
+) -> dict[UUID, list[Monitoring]]:
+    stmt = (
+        select(Monitoring)
+        .join(Area)
+        .join(Project)
+        .where(Monitoring.area_id.in_(area_ids))  # type: ignore[attr-defined]
+        .order_by(text("monitoring.visit_date desc"), text("monitoring.created_at desc"))
+    )
     if organization_id is not None:
         stmt = stmt.where(Project.organization_id == organization_id)
-    return list(session.exec(stmt).all())
+
+    recent_by_area: dict[UUID, list[Monitoring]] = {}
+    for monitoring in session.exec(stmt).all():
+        recent = recent_by_area.setdefault(monitoring.area_id, [])
+        if len(recent) < RECENT_MONITORINGS_LIMIT:
+            recent.append(monitoring)
+    return recent_by_area
 
 
 def update_area(session: Session, area_id: UUID, data: AreaUpdate) -> Area | None:

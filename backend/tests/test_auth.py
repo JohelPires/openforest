@@ -7,6 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from openforest.api.config import settings
 from openforest.api.infrastructure.database import get_session
 from openforest.api.models.user import User
+from openforest.api.services.auth_service import hash_password
 
 parsed = urlparse(settings.database_url)
 test_db_url = urlunparse(parsed._replace(path="/openforest_test"))
@@ -171,6 +172,61 @@ def test_protected_endpoint_user_without_org_forbidden(
 ) -> None:
     response = client.get("/api/v1/projects", headers=auth_headers)
     assert response.status_code == 403
+
+
+def test_me_no_token(client: TestClient) -> None:
+    response = client.get("/api/v1/auth/me")
+    assert response.status_code == 401
+
+
+def test_me_without_org(client: TestClient, auth_headers: dict) -> None:
+    response = client.get("/api/v1/auth/me", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Test User"
+    assert data["email"] == "test@test.com"
+    assert data["organization"] is None
+
+
+def test_me_with_org(client: TestClient, auth_headers: dict) -> None:
+    org_response = client.post(
+        "/api/v1/organizations",
+        json={"name": "Minha Org", "slug": "minha-org"},
+        headers=auth_headers,
+    )
+    assert org_response.status_code == 200
+    org_id = org_response.json()["id"]
+    org_name = org_response.json()["name"]
+
+    response = client.get("/api/v1/auth/me", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["organization"]["id"] == org_id
+    assert data["organization"]["name"] == org_name
+    assert data["organization"]["role"] == "manager"
+
+
+def test_me_superuser(client: TestClient, session: Session) -> None:
+    superuser = User(
+        name="Admin",
+        email="admin-me@test.com",
+        password_hash=hash_password("secret123"),
+        is_superuser=True,
+    )
+    session.add(superuser)
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin-me@test.com", "password": "secret123"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    response = client.get("/api/v1/auth/me", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Admin"
+    assert data["organization"] is None
 
 
 def test_health_public(client: TestClient) -> None:

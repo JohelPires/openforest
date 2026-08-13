@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, text
 
 from openforest.api.config import settings
 from openforest.api.models.area import Area
@@ -20,6 +20,8 @@ test_engine = create_engine(test_db_url)
 
 @pytest.fixture(scope="session", autouse=True)
 def create_tables():
+    with test_engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     SQLModel.metadata.create_all(test_engine)
     yield
     SQLModel.metadata.drop_all(test_engine)
@@ -126,6 +128,43 @@ def test_create_area(
     assert data["goal"] == "Restaurar 5 ha de mata ciliar"
     assert data["project_id"] == str(project.id)
     assert "id" in data
+
+
+def test_create_area_roundtrips_geojson_coordinates(
+    client: TestClient, project: Project, auth_headers: dict, manager_membership: UserOrganization
+) -> None:
+    polygon = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [-56.12, -15.62],
+                [-56.10, -15.62],
+                [-56.10, -15.60],
+                [-56.12, -15.60],
+                [-56.12, -15.62],
+            ]
+        ],
+    }
+    create_resp = client.post(
+        f"/api/v1/projects/{project.id}/areas",
+        json={"name": "Área com geometria", "coordinates": polygon},
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 200
+    area_id = create_resp.json()["id"]
+    assert create_resp.json()["coordinates"]["type"] == "Polygon"
+
+    get_resp = client.get(f"/api/v1/areas/{area_id}", headers=auth_headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["coordinates"]["coordinates"] == polygon["coordinates"]
+
+    update_resp = client.patch(
+        f"/api/v1/areas/{area_id}",
+        json={"coordinates": None},
+        headers=auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["coordinates"] is None
 
 
 def test_create_area_invalid_project(client: TestClient, auth_headers: dict) -> None:

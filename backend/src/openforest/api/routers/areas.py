@@ -5,11 +5,11 @@ from fastapi import APIRouter, HTTPException
 from openforest.api.dependencies.auth import CurrentOrgDep, CurrentUserDep, require_org_role
 from openforest.api.dependencies.pagination import PaginationDep
 from openforest.api.infrastructure.database import SessionDep
-from openforest.api.models.area import Area
 from openforest.api.models.user_organization import UserOrganizationRole
 from openforest.api.schemas.area import AreaCreate, AreaRead, AreaUpdate
 from openforest.api.schemas.pagination import Paginated
 from openforest.api.services.area_service import (
+    _area_to_read,
     create_area,
     delete_area,
     get_area,
@@ -43,7 +43,7 @@ def create_area_route(
     project_id: UUID,
     data: AreaCreate,
     _: None = require_org_role(UserOrganizationRole.manager, UserOrganizationRole.researcher),
-) -> Area:
+) -> AreaRead:
     organization_id = current_org.organization_id if current_org else None
     if organization_id is None:
         raise HTTPException(
@@ -59,7 +59,7 @@ def get_area_route(
     current_user: CurrentUserDep,
     current_org: CurrentOrgDep,
     area_id: UUID,
-) -> Area | None:
+) -> AreaRead:
     organization_id = current_org.organization_id if current_org else None
     area = get_area(session, area_id, organization_id)
     if not area:
@@ -67,7 +67,7 @@ def get_area_route(
             status_code=404,
             detail=[{"msg": "Área não encontrada", "type": "not_found"}],
         )
-    return area
+    return _area_to_read(area)
 
 
 @router.patch("/areas/{area_id}", response_model=AreaRead)
@@ -78,7 +78,7 @@ def update_area_route(
     area_id: UUID,
     data: AreaUpdate,
     _: None = require_org_role(UserOrganizationRole.manager, UserOrganizationRole.researcher),
-) -> Area | None:
+) -> AreaRead:
     organization_id = current_org.organization_id if current_org else None
     area = get_area(session, area_id, organization_id)
     if not area:
@@ -86,7 +86,13 @@ def update_area_route(
             status_code=404,
             detail=[{"msg": "Área não encontrada", "type": "not_found"}],
         )
-    return update_area(session, area_id, data)
+    updated = update_area(session, area_id, data)
+    if updated is None:
+        raise HTTPException(
+            status_code=404,
+            detail=[{"msg": "Área não encontrada", "type": "not_found"}],
+        )
+    return updated
 
 
 @router.delete("/areas/{area_id}")

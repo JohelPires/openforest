@@ -13,6 +13,7 @@ from sqlmodel import Session, select, text
 
 from openforest.api.config import settings
 from openforest.api.infrastructure.database import engine
+from openforest.api.infrastructure.geometry import to_geometry
 from openforest.api.models.area import Area, RestorationStatus
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.organization import Organization
@@ -155,7 +156,7 @@ class _VisitPlan:
 @dataclass(frozen=True)
 class _AreaPlan:
     area: SeedArea
-    coordinates: dict[str, object]
+    geometry: dict[str, object]
     visits: list[_VisitPlan]
 
 
@@ -905,6 +906,18 @@ def _build_visits(
     return visits
 
 
+def _area_geometry(lat: float, lng: float, rng: random.Random) -> dict[str, object]:
+    delta = rng.uniform(0.003, 0.008)
+    ring = [
+        (round(lng - delta, 6), round(lat - delta, 6)),
+        (round(lng + delta, 6), round(lat - delta, 6)),
+        (round(lng + delta, 6), round(lat + delta, 6)),
+        (round(lng - delta, 6), round(lat + delta, 6)),
+        (round(lng - delta, 6), round(lat - delta, 6)),
+    ]
+    return {"type": "Polygon", "coordinates": [ring]}
+
+
 def _build_plan(rng: random.Random, today: date) -> list[_OrganizationPlan]:
     plan: list[_OrganizationPlan] = []
     for organization in _ORGANIZATIONS:
@@ -913,12 +926,11 @@ def _build_plan(rng: random.Random, today: date) -> list[_OrganizationPlan]:
             area_plans: list[_AreaPlan] = []
             base_lat, base_lng = organization.coords
             for area in project.areas:
-                coordinates: dict[str, object] = {
-                    "lat": round(base_lat + rng.uniform(-0.3, 0.3), 6),
-                    "lng": round(base_lng + rng.uniform(-0.3, 0.3), 6),
-                }
+                lat = base_lat + rng.uniform(-0.3, 0.3)
+                lng = base_lng + rng.uniform(-0.3, 0.3)
+                geometry = _area_geometry(lat, lng, rng)
                 visits = _build_visits(rng, area, project.start_date, today, organization.biome)
-                area_plans.append(_AreaPlan(area=area, coordinates=coordinates, visits=visits))
+                area_plans.append(_AreaPlan(area=area, geometry=geometry, visits=visits))
             project_plans.append(_ProjectPlan(project=project, areas=area_plans))
         plan.append(_OrganizationPlan(organization=organization, projects=project_plans))
     return plan
@@ -1046,7 +1058,7 @@ def seed(
                         goal=area_plan.area.goal,
                         size_hectares=area_plan.area.size_hectares,
                         biome=org_plan.organization.biome,
-                        coordinates=area_plan.coordinates,
+                        geometry=to_geometry(area_plan.geometry),
                         restoration_status=area_plan.area.status,
                     )
                     session.add(area)

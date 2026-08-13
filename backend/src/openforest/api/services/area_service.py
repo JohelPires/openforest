@@ -4,17 +4,23 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlmodel import Session, func, select
 
+from openforest.api.infrastructure.geometry import to_geojson, to_geometry
 from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.project import Project
 from openforest.api.schemas.area import AreaCreate, AreaRead, AreaUpdate
+from openforest.api.schemas.monitoring import MonitoringRead
 
 RECENT_MONITORINGS_LIMIT = 10
 
 
+def _area_to_read(area: Area) -> AreaRead:
+    return AreaRead(**area.model_dump(exclude={"geometry"}), coordinates=to_geojson(area.geometry))
+
+
 def create_area(
     session: Session, project_id: UUID, data: AreaCreate, organization_id: UUID
-) -> Area:
+) -> AreaRead:
     project = session.get(Project, project_id)
     if not project:
         raise HTTPException(
@@ -31,11 +37,13 @@ def create_area(
             status_code=403,
             detail=[{"msg": "Permissão insuficiente", "type": "forbidden"}],
         )
-    area = Area(**data.model_dump(), project_id=project_id)
+    payload = data.model_dump()
+    geometry = to_geometry(payload.pop("coordinates", None))
+    area = Area(**payload, geometry=geometry, project_id=project_id)
     session.add(area)
     session.commit()
     session.refresh(area)
-    return area
+    return _area_to_read(area)
 
 
 def get_area(session: Session, area_id: UUID, organization_id: UUID | None = None) -> Area | None:
@@ -69,15 +77,15 @@ def list_areas(
     recent_by_area = _recent_monitorings_by_area(
         session, [area.id for area in areas], organization_id
     )
-    return [
-        AreaRead(**area.model_dump(), recent_monitorings=recent_by_area.get(area.id, []))
-        for area in areas
-    ], total
+    reads = [_area_to_read(area) for area in areas]
+    for read in reads:
+        read.recent_monitorings = recent_by_area.get(read.id, [])
+    return reads, total
 
 
 def _recent_monitorings_by_area(
     session: Session, area_ids: list[UUID], organization_id: UUID | None
-) -> dict[UUID, list[Monitoring]]:
+) -> dict[UUID, list[MonitoringRead]]:
     stmt = (
         select(Monitoring)
         .join(Area)
@@ -88,23 +96,26 @@ def _recent_monitorings_by_area(
     if organization_id is not None:
         stmt = stmt.where(Project.organization_id == organization_id)
 
-    recent_by_area: dict[UUID, list[Monitoring]] = {}
+    recent_by_area: dict[UUID, list[MonitoringRead]] = {}
     for monitoring in session.exec(stmt).all():
         recent = recent_by_area.setdefault(monitoring.area_id, [])
         if len(recent) < RECENT_MONITORINGS_LIMIT:
-            recent.append(monitoring)
+            recent.append(MonitoringRead(**monitoring.model_dump()))
     return recent_by_area
 
 
-def update_area(session: Session, area_id: UUID, data: AreaUpdate) -> Area | None:
+def update_area(session: Session, area_id: UUID, data: AreaUpdate) -> AreaRead | None:
     area = session.get(Area, area_id)
     if not area:
         return None
-    for field, value in data.model_dump(exclude_unset=True).items():
+    payload = data.model_dump(exclude_unset=True)
+    if "coordinates" in payload:
+        area.geometry = to_geometry(payload.pop("coordinates"))
+    for field, value in payload.items():
         setattr(area, field, value)
     session.commit()
     session.refresh(area)
-    return area
+    return _area_to_read(area)
 
 
 def delete_area(session: Session, area_id: UUID) -> bool:

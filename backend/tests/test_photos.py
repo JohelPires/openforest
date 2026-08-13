@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, text
 
 from openforest.api.config import settings
 from openforest.api.models.area import Area
@@ -22,6 +22,8 @@ test_engine = create_engine(test_db_url)
 
 @pytest.fixture(scope="session", autouse=True)
 def create_tables():
+    with test_engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
     SQLModel.metadata.create_all(test_engine)
     yield
     SQLModel.metadata.drop_all(test_engine)

@@ -11,3 +11,5 @@ Requires-Dist: python-multipart
 Requires-Dist: redis>=5.0.0
 Requires-Dist: sqlmodel>=0.0.22
 Requires-Dist: boto3>=1.43.63
+Requires-Dist: geoalchemy2>=0.20.0
+Requires-Dist: shapely>=2.1.2

@@ -29,7 +29,7 @@ services:
       restart: unless-stopped
 
    postgres:
-      image: postgres:17-alpine
+      image: postgis/postgis:17-3.5
 
       container_name: openforest-postgres
 

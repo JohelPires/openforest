@@ -28,6 +28,19 @@ describe("isPolygonGeometry", () => {
     expect(isPolygonGeometry({ type: "MultiPolygon", coordinates: [] })).toBe(false);
   });
 
+  it("rejeita coordinates vazio", () => {
+    expect(isPolygonGeometry({ type: "Polygon", coordinates: [] })).toBe(false);
+  });
+
+  it("rejeita position com menos de 2 coordenadas", () => {
+    expect(
+      isPolygonGeometry({
+        type: "Polygon",
+        coordinates: [[[-46.7, -23.5], [-46.6], [-46.6, -23.4], [-46.7, -23.5]]],
+      }),
+    ).toBe(false);
+  });
+
   it("rejeita ring com menos de 4 pontos", () => {
     expect(
       isPolygonGeometry({

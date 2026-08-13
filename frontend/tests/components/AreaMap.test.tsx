@@ -83,11 +83,11 @@ describe("AreaMap", () => {
       type: "geojson",
       data: { type: "Feature", geometry: area.coordinates, properties: {} },
     });
-    expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({ type: "fill" }));
+    expect(map.addLayer).toHaveBeenCalledWith(      expect.objectContaining({ type: "fill" }));
     expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({ type: "line" }));
     expect(map.fitBounds).toHaveBeenCalledWith(
       [-46.7, -23.6, -46.5, -23.4],
-      expect.any(Object),
+      expect.objectContaining({ padding: 48, maxZoom: 18 }),
     );
   });
 

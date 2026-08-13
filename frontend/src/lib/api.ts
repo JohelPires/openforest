@@ -1,9 +1,8 @@
 import { clearSession, getAccessToken, getRefreshToken, isRemembered, setSession } from '@/lib/auth'
 import type { Token } from '@/lib/auth'
+import type { PolygonGeometry } from '@/lib/geo'
 
 export type { Token }
-
-import type { PolygonGeometry } from "@/lib/geo";
 
 const BASE_PATH = '/api/v1'
 

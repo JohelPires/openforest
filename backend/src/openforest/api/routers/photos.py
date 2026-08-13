@@ -5,16 +5,38 @@ from fastapi.responses import Response
 
 from openforest.api.config import settings
 from openforest.api.dependencies.auth import CurrentOrgDep, CurrentUserDep
+from openforest.api.dependencies.pagination import PaginationDep
 from openforest.api.dependencies.permissions import check_area_role
 from openforest.api.infrastructure.database import SessionDep
 from openforest.api.infrastructure.storage import delete_file, read_file, save_upload
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.photo import Photo
 from openforest.api.models.user_organization import UserOrganizationRole
+from openforest.api.schemas.pagination import Paginated
 from openforest.api.schemas.photo import PhotoCreate, PhotoRead
-from openforest.api.services.photo_service import create_photo, delete_photo, get_photo
+from openforest.api.services.photo_service import (
+    create_photo,
+    delete_photo,
+    get_photo,
+    list_photos,
+)
 
 router = APIRouter(tags=["fotos"])
+
+
+@router.get("/monitorings/{monitoring_id}/photos", response_model=Paginated[PhotoRead])
+def list_photos_route(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    current_org: CurrentOrgDep,
+    monitoring_id: UUID,
+    pagination: PaginationDep,
+) -> Paginated[Photo]:
+    organization_id = current_org.organization_id if current_org else None
+    items, total = list_photos(
+        session, monitoring_id, pagination.offset, pagination.limit, organization_id
+    )
+    return Paginated(items=items, total=total, offset=pagination.offset, limit=pagination.limit)
 
 
 @router.post("/monitorings/{monitoring_id}/photos", response_model=PhotoRead)

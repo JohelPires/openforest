@@ -1,7 +1,8 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import Session, select
+from sqlalchemy import text
+from sqlmodel import Session, func, select
 
 from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
@@ -44,8 +45,35 @@ def get_photo(
     return session.exec(stmt).first()
 
 
-def list_photos(session: Session, monitoring_id: UUID) -> list[Photo]:
-    return list(session.exec(select(Photo).where(Photo.monitoring_id == monitoring_id)).all())
+def list_photos(
+    session: Session,
+    monitoring_id: UUID,
+    offset: int,
+    limit: int,
+    organization_id: UUID | None = None,
+) -> tuple[list[Photo], int]:
+    count_stmt = (
+        select(func.count())
+        .select_from(Photo)
+        .join(Monitoring)
+        .join(Area)
+        .join(Project)
+        .where(Photo.monitoring_id == monitoring_id)
+    )
+    stmt = (
+        select(Photo)
+        .join(Monitoring)
+        .join(Area)
+        .join(Project)
+        .where(Photo.monitoring_id == monitoring_id)
+        .order_by(text("photo.created_at desc"))
+    )
+    if organization_id is not None:
+        count_stmt = count_stmt.where(Project.organization_id == organization_id)
+        stmt = stmt.where(Project.organization_id == organization_id)
+    total = session.exec(count_stmt).one()
+    items = session.exec(stmt.offset(offset).limit(limit)).all()
+    return list(items), total
 
 
 def delete_photo(session: Session, photo_id: UUID) -> Photo | None:

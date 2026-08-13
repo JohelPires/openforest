@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from pydantic import computed_field
 from sqlmodel import SQLModel
 
 
@@ -18,3 +19,8 @@ class PhotoRead(PhotoCreate):
     file_path: str
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def url(self) -> str:
+        return f"/api/v1/photos/{self.id}/download"

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 from uuid import uuid4
@@ -10,6 +11,7 @@ from openforest.api.config import settings
 from openforest.api.models.area import Area
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.organization import Organization
+from openforest.api.models.photo import Photo
 from openforest.api.models.project import Project
 from openforest.api.models.user import User
 from openforest.api.models.user_organization import UserOrganization, UserOrganizationRole
@@ -487,3 +489,110 @@ def test_user_cannot_read_other_org_photo(
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     response = client.get(f"/api/v1/photos/{photo_id}", headers=headers)
     assert response.status_code == 404
+
+
+def test_list_photos(
+    client: TestClient,
+    monitoring: Monitoring,
+    auth_headers: dict,
+    manager_membership: UserOrganization,
+) -> None:
+    for name in ("foto.jpg", "foto2.jpg"):
+        client.post(
+            f"/api/v1/monitorings/{monitoring.id}/photos",
+            files={"file": (name, b"fake-image-bytes", "image/jpeg")},
+            headers=auth_headers,
+        )
+
+    response = client.get(f"/api/v1/monitorings/{monitoring.id}/photos", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2
+    assert data["offset"] == 0
+    assert data["limit"] == 20
+    assert len(data["items"]) == 2
+    for item in data["items"]:
+        assert item["monitoring_id"] == str(monitoring.id)
+        assert item["url"] == f"/api/v1/photos/{item['id']}/download"
+
+
+def test_list_photos_ordered_and_paginated(
+    client: TestClient,
+    monitoring: Monitoring,
+    auth_headers: dict,
+    manager_membership: UserOrganization,
+    session: Session,
+) -> None:
+    base = datetime.now(timezone.utc)
+    for i in range(3):
+        session.add(
+            Photo(
+                monitoring_id=monitoring.id,
+                file_path=f"photos/{monitoring.id}/{i}.jpg",
+                original_filename=f"foto{i}.jpg",
+                mime_type="image/jpeg",
+                file_size=10,
+                created_at=base - timedelta(minutes=i),
+            )
+        )
+    session.commit()
+
+    response = client.get(
+        f"/api/v1/monitorings/{monitoring.id}/photos?offset=1&limit=2",
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 3
+    assert data["offset"] == 1
+    assert data["limit"] == 2
+    assert len(data["items"]) == 2
+    assert [p["original_filename"] for p in data["items"]] == ["foto1.jpg", "foto2.jpg"]
+
+
+def test_list_photos_empty(client: TestClient, monitoring: Monitoring, auth_headers: dict) -> None:
+    response = client.get(f"/api/v1/monitorings/{monitoring.id}/photos", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 0
+    assert data["items"] == []
+
+
+def test_list_photos_other_org_scoped(
+    client: TestClient,
+    monitoring: Monitoring,
+    organization: Organization,
+    session: Session,
+    auth_headers: dict,
+) -> None:
+    client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=auth_headers,
+    )
+
+    other_org = Organization(name="Outra ONG", slug="outra-ong-list")
+    other_user = User(
+        name="Other", email="otherlist@test.com", password_hash=hash_password("secret123")
+    )
+    session.add(other_org)
+    session.add(other_user)
+    session.commit()
+    session.add(
+        UserOrganization(
+            user_id=other_user.id,
+            organization_id=other_org.id,
+            role=UserOrganizationRole.manager,
+        )
+    )
+    session.commit()
+
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "otherlist@test.com", "password": "secret123"}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    response = client.get(f"/api/v1/monitorings/{monitoring.id}/photos", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 0
+    assert data["items"] == []

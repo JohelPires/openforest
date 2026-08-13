@@ -92,8 +92,9 @@ def delete_photo_prefix(prefix: str) -> None:
         if not page.get("IsTruncated"):
             break
         token = page.get("NextContinuationToken")
-    if keys:
+    for i in range(0, len(keys), 1000):
+        batch = keys[i : i + 1000]
         client.delete_objects(
             Bucket=settings.s3_bucket,
-            Delete={"Objects": [{"Key": key} for key in keys]},
+            Delete={"Objects": [{"Key": key} for key in batch]},
         )

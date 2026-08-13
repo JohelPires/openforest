@@ -9,6 +9,7 @@ class FakeS3Client:
         self._pages = pages or []
         self.generate_presigned_url_calls: list[tuple] = []
         self.deleted: dict[str, list[str]] = {"keys": []}
+        self.delete_objects_calls: list[int] = []
         self.put_object_calls: list[dict] = []
 
     def generate_presigned_url(
@@ -23,7 +24,9 @@ class FakeS3Client:
         return {"Contents": [], "IsTruncated": False}
 
     def delete_objects(self, *, Bucket: object = None, Delete: object = None) -> None:
-        for obj in Delete["Objects"]:
+        objects = Delete["Objects"]
+        self.delete_objects_calls.append(len(objects))
+        for obj in objects:
             self.deleted["keys"].append(obj["Key"])
 
     def put_object(self, **kwargs: object) -> None:
@@ -78,3 +81,14 @@ def test_delete_photo_prefix_paginates(fake_s3: FakeS3Client) -> None:
     ]
     delete_photo_prefix("photos/")
     assert sorted(fake_s3.deleted["keys"]) == ["photos/a/1.jpg", "photos/b/2.jpg"]
+
+
+def test_delete_photo_prefix_batches_over_1000_keys(fake_s3: FakeS3Client) -> None:
+    keys = [f"photos/{i}.jpg" for i in range(1001)]
+    fake_s3._pages = [
+        {"Contents": [{"Key": key} for key in keys[:1000]], "IsTruncated": True, "NextContinuationToken": "tok"},
+        {"Contents": [{"Key": keys[1000]}], "IsTruncated": False},
+    ]
+    delete_photo_prefix("photos/")
+    assert sorted(fake_s3.deleted["keys"]) == sorted(keys)
+    assert all(size <= 1000 for size in fake_s3.delete_objects_calls)

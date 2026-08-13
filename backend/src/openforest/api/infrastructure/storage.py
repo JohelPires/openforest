@@ -64,3 +64,36 @@ def read_file(file_path: str) -> bytes:
         response = _s3_client().get_object(Bucket=settings.s3_bucket, Key=file_path)
         return cast(bytes, response["Body"].read())
     return _local_root().joinpath(file_path).read_bytes()
+
+
+def get_presigned_url(file_path: str, expires_in: int | None = None) -> str:
+    if settings.storage_backend != "s3":
+        raise RuntimeError("presigned URLs requerem storage_backend='s3'")
+    return cast(
+        str,
+        _s3_client().generate_presigned_url(
+            "get_object",
+            Params={"Bucket": settings.s3_bucket, "Key": file_path},
+            ExpiresIn=expires_in or settings.presigned_url_expire_seconds,
+        ),
+    )
+
+
+def delete_photo_prefix(prefix: str) -> None:
+    client = _s3_client()
+    keys: list[str] = []
+    token: str | None = None
+    while True:
+        kwargs: dict[str, object] = {"Bucket": settings.s3_bucket, "Prefix": prefix}
+        if token:
+            kwargs["ContinuationToken"] = token
+        page = client.list_objects_v2(**kwargs)
+        keys.extend(entry["Key"] for entry in page.get("Contents", []))
+        if not page.get("IsTruncated"):
+            break
+        token = page.get("NextContinuationToken")
+    if keys:
+        client.delete_objects(
+            Bucket=settings.s3_bucket,
+            Delete={"Objects": [{"Key": key} for key in keys]},
+        )

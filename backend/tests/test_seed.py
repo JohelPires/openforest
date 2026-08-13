@@ -51,6 +51,28 @@ def session():
     connection.close()
 
 
+class FakeS3Client:
+    def __init__(self) -> None:
+        self.objects: dict[str, object] = {}
+        self.deleted: dict[str, list[str]] = {"keys": []}
+
+    def put_object(self, Bucket: str, Key: str, Body: bytes, **kwargs: object) -> None:
+        self.objects[Key] = Body
+
+    def list_objects_v2(self, Bucket: str, Prefix: str, **kwargs: object) -> dict:
+        contents = [{"Key": key} for key in self.objects if key.startswith(Prefix)]
+        return {"Contents": contents, "IsTruncated": False}
+
+    def delete_objects(self, Bucket: str, Delete: dict, **kwargs: object) -> None:
+        for entry in Delete["Objects"]:
+            key = entry["Key"]
+            self.deleted["keys"].append(key)
+            self.objects.pop(key, None)
+
+
+fake_s3_client = FakeS3Client()
+
+
 @pytest.fixture(autouse=True)
 def local_storage(tmp_path):
     original_backend = settings.storage_backend
@@ -60,6 +82,19 @@ def local_storage(tmp_path):
     yield
     settings.storage_backend = original_backend
     settings.storage_path = original_path
+
+
+@pytest.fixture
+def s3_storage(monkeypatch):
+    global fake_s3_client
+    fake_s3_client = FakeS3Client()
+    original_backend = settings.storage_backend
+    settings.storage_backend = "s3"
+    monkeypatch.setattr(
+        "openforest.api.infrastructure.storage._s3_client", lambda: fake_s3_client
+    )
+    yield
+    settings.storage_backend = original_backend
 
 
 def _count(session: Session, model: type[SQLModel]) -> int:
@@ -170,3 +205,19 @@ def test_seed_without_photos_writes_no_files(session) -> None:
     assert _count(session, Photo) == 0
     files = [p for p in Path(settings.storage_path).rglob("*") if p.is_file()]
     assert files == []
+
+
+def test_seed_writes_photos_via_s3(session, s3_storage) -> None:
+    report = seed(session, create_photos=True)
+    session.commit()
+    assert report.photos_created >= 600
+    local_files = [p for p in Path(settings.storage_path).rglob("*") if p.is_file()]
+    assert local_files == []
+
+
+def test_seed_reset_cleans_bucket(session, s3_storage) -> None:
+    report = seed(session, create_photos=True)
+    session.commit()
+    reset(session)
+    assert fake_s3_client.deleted["keys"]
+    assert all(key.startswith("photos/") for key in fake_s3_client.deleted["keys"])

@@ -7,13 +7,14 @@ import zlib
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlmodel import Session, select, text
 
 from openforest.api.config import settings
 from openforest.api.infrastructure.database import engine
 from openforest.api.infrastructure.geometry import to_geometry
+from openforest.api.infrastructure.storage import delete_photo_prefix, save_upload
 from openforest.api.models.area import Area, RestorationStatus
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.organization import Organization
@@ -938,10 +939,7 @@ def _build_plan(rng: random.Random, today: date) -> list[_OrganizationPlan]:
 
 def _write_photo_file(monitoring_id: UUID, original_filename: str) -> tuple[str, int]:
     png_bytes = _placeholder_png()
-    key = f"photos/{monitoring_id}/{uuid4()}.png"
-    path = Path(settings.storage_path) / key
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(png_bytes)
+    key = save_upload(png_bytes, original_filename, "image/png", monitoring_id)
     return key, len(png_bytes)
 
 
@@ -1114,6 +1112,10 @@ def seed(
 def reset(session: Session) -> None:
     session.execute(text(f"TRUNCATE TABLE {', '.join(_TABLE_NAMES)} CASCADE"))
     session.commit()
+    if settings.storage_backend == "s3":
+        delete_photo_prefix("photos/")
+    else:
+        _clear_local_photos()
 
 
 def _clear_local_photos() -> None:
@@ -1182,7 +1184,9 @@ def main() -> None:
     with Session(engine) as session:
         if args.reset:
             reset(session)
-            if settings.storage_backend == "local":
+            if settings.storage_backend == "s3":
+                delete_photo_prefix("photos/")
+            else:
                 _clear_local_photos()
         report = seed(
             session,

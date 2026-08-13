@@ -6,8 +6,10 @@ import {
   createArea,
   createProject,
   deleteProject,
+  downloadPhoto,
   getArea,
   listAreaMonitorings,
+  listMonitoringPhotos,
   listProjects,
   login,
   logout,
@@ -470,5 +472,59 @@ describe("área e monitoramentos", () => {
     expect(result).toEqual(body);
     const [url] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe("/api/v1/areas/area-1/monitorings?offset=10&limit=10");
+  });
+});
+
+describe("fotos de um monitoramento", () => {
+  const photo = {
+    id: "photo-1",
+    monitoring_id: "mon-1",
+    file_path: "/uploads/mon-1/visita.jpg",
+    original_filename: "visita.jpg",
+    mime_type: "image/jpeg",
+    file_size: 2048,
+    created_at: "2024-06-01T10:00:00Z",
+    updated_at: "2024-06-01T10:00:00Z",
+  };
+
+  beforeEach(() => {
+    setSession(
+      { access_token: "abc", refresh_token: "def", token_type: "bearer" },
+      true,
+    );
+  });
+
+  it("lista fotos paginadas de um monitoramento com autorização", async () => {
+    const body = { items: [photo], total: 1, offset: 0, limit: 100 };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })),
+    );
+
+    await expect(listMonitoringPhotos("mon-1")).resolves.toEqual(body);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/monitorings/mon-1/photos?offset=0&limit=100");
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
+  });
+
+  it("baixa a foto como blob com autorização", async () => {
+    const blob = new Blob(["foto"], { type: "image/jpeg" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(blob, { status: 200 })),
+    );
+
+    const result = await downloadPhoto("photo-1");
+    expect(result).toBeInstanceOf(Blob);
+    expect(await result.text()).toBe("foto");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("/api/v1/photos/photo-1/download");
+    expect(((init as RequestInit).headers as Record<string, string>).Authorization).toBe(
+      "Bearer abc",
+    );
   });
 });

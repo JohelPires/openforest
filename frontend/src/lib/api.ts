@@ -23,6 +23,7 @@ interface ApiFetchOptions {
    body?: unknown
    auth?: boolean
    retry?: boolean
+   responseType?: 'json' | 'blob'
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -65,7 +66,7 @@ async function refreshTokens(): Promise<boolean> {
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-   const { method = 'GET', body, auth = false, retry = true } = options
+   const { method = 'GET', body, auth = false, retry = true, responseType = 'json' } = options
 
    const headers: Record<string, string> = {}
    if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -97,6 +98,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
    }
 
    if (response.status === 204) return undefined as T
+   if (responseType === 'blob') return (await response.blob()) as unknown as T
    return (await response.json()) as T
 }
 
@@ -234,6 +236,19 @@ export interface MonitoringRead {
   updated_at: string;
 }
 
+export interface PhotoRead {
+  id: string;
+  monitoring_id: string;
+  file_path: string;
+  original_filename?: string | null;
+  mime_type?: string | null;
+  file_size?: number | null;
+  width?: number | null;
+  height?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface AreaRead {
   id: string;
   project_id: string;
@@ -292,4 +307,22 @@ export function listAreaMonitorings(
     `/areas/${areaId}/monitorings?offset=${offset}&limit=${limit}`,
     { auth: true },
   );
+}
+
+export function listMonitoringPhotos(
+  monitoringId: string,
+  offset = 0,
+  limit = 100,
+): Promise<Paginated<PhotoRead>> {
+  return apiFetch<Paginated<PhotoRead>>(
+    `/monitorings/${monitoringId}/photos?offset=${offset}&limit=${limit}`,
+    { auth: true },
+  );
+}
+
+export function downloadPhoto(photoId: string): Promise<Blob> {
+  return apiFetch<Blob>(`/photos/${photoId}/download`, {
+    auth: true,
+    responseType: "blob",
+  });
 }

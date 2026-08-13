@@ -17,6 +17,8 @@ import { apiFetch, getArea, listAreaMonitorings, type ProjectRead } from "@/lib/
 import { STATUS_BADGE, STATUS_LABEL } from "@/lib/status";
 import { useBreadcrumb } from "@/components/features/painel-breadcrumb";
 import { MonitoringList } from "@/components/features/monitoring-list";
+import { MonitoringDetailDialog } from "@/components/features/monitoring-detail-dialog";
+import type { MonitoringListItem } from "@/components/features/monitoring-list";
 import { AreaMap } from "@/components/features/area-map";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +86,7 @@ function PaginationControls({
 export default function AreaDetailPage() {
   const params = useParams<{ id: string; areaId: string }>();
   const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState<MonitoringListItem | null>(null);
 
   const areaQuery = useQuery({
     queryKey: ["area", params.areaId],
@@ -277,7 +280,7 @@ export default function AreaDetailPage() {
             </div>
           ) : (
             <>
-              <MonitoringList items={monitoringsQuery.data.items} />
+              <MonitoringList items={monitoringsQuery.data.items} onSelect={setSelected} />
               <PaginationControls
                 total={monitoringsQuery.data.total}
                 offset={offset}
@@ -288,6 +291,17 @@ export default function AreaDetailPage() {
           )}
         </div>
       </section>
+
+      {selected ? (
+        <MonitoringDetailDialog
+          monitoring={selected}
+          areaName={area.name}
+          open
+          onOpenChange={(next) => {
+            if (!next) setSelected(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

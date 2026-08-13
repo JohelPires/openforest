@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AreaDetailPage from "@/app/painel/projetos/[id]/areas/[areaId]/page";
 import type { AreaRead, MonitoringRead, ProjectRead } from "@/lib/api";
 
-const { getAreaMock, listAreaMonitoringsMock, apiFetchMock } = vi.hoisted(() => ({
-  getAreaMock: vi.fn(),
-  listAreaMonitoringsMock: vi.fn(),
-  apiFetchMock: vi.fn(),
-}));
+const { getAreaMock, listAreaMonitoringsMock, apiFetchMock, listMonitoringPhotosMock } =
+  vi.hoisted(() => ({
+    getAreaMock: vi.fn(),
+    listAreaMonitoringsMock: vi.fn(),
+    apiFetchMock: vi.fn(),
+    listMonitoringPhotosMock: vi.fn(),
+  }));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "proj-1", areaId: "area-1" }),
@@ -22,6 +24,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     getArea: getAreaMock,
     listAreaMonitorings: listAreaMonitoringsMock,
     apiFetch: apiFetchMock,
+    listMonitoringPhotos: listMonitoringPhotosMock,
   };
 });
 
@@ -84,6 +87,7 @@ describe("AreaDetailPage", () => {
     getAreaMock.mockReset();
     listAreaMonitoringsMock.mockReset();
     apiFetchMock.mockReset();
+    listMonitoringPhotosMock.mockReset();
   });
 
   afterEach(cleanup);
@@ -214,5 +218,33 @@ describe("AreaDetailPage", () => {
     expect(
       screen.getByRole("button", { name: /Tentar novamente/ }),
     ).toBeInTheDocument();
+  });
+
+  it("abre o dialog de detalhes ao clicar em um monitoramento", async () => {
+    apiFetchMock.mockResolvedValue(project);
+    getAreaMock.mockResolvedValue(area);
+    listAreaMonitoringsMock.mockResolvedValue({
+      items: [monitoring("mon-1", "2024-06-01")],
+      total: 1,
+      offset: 0,
+      limit: 10,
+    });
+    listMonitoringPhotosMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      offset: 0,
+      limit: 100,
+    });
+
+    renderPage();
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: /1 de junho de 2024/ }),
+    );
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Área · Borrazóis")).toBeInTheDocument();
+    expect(screen.getByText("Nenhuma foto anexada a esta visita.")).toBeInTheDocument();
   });
 });

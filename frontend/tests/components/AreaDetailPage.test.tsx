@@ -26,8 +26,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 vi.mock("maplibre-gl", () => ({
-  default: { Map: class {} },
+  default: { Map: class {}, setWorkerUrl: vi.fn() },
   Map: class {},
+  setWorkerUrl: vi.fn(),
 }));
 
 const project: ProjectRead = {

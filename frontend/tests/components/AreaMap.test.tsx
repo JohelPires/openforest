@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AreaMap } from "@/components/features/area-map";
 import type { AreaRead } from "@/lib/api";
 
-const { mapInstances } = vi.hoisted(() => ({
+const { mapInstances, setWorkerUrlMock } = vi.hoisted(() => ({
   mapInstances: [] as Array<{
     on: ReturnType<typeof vi.fn>;
     addSource: ReturnType<typeof vi.fn>;
@@ -11,6 +11,7 @@ const { mapInstances } = vi.hoisted(() => ({
     fitBounds: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
   }>,
+  setWorkerUrlMock: vi.fn(),
 }));
 
 vi.mock("maplibre-gl", () => {
@@ -24,7 +25,11 @@ vi.mock("maplibre-gl", () => {
       mapInstances.push(this);
     }
   }
-  return { default: { Map: MockMap }, Map: MockMap };
+  return {
+    default: { Map: MockMap, setWorkerUrl: setWorkerUrlMock },
+    Map: MockMap,
+    setWorkerUrl: setWorkerUrlMock,
+  };
 });
 
 function polygonArea(): AreaRead {
@@ -60,6 +65,7 @@ function triggerLoad(map: (typeof mapInstances)[number]) {
 describe("AreaMap", () => {
   beforeEach(() => {
     mapInstances.length = 0;
+    setWorkerUrlMock.mockClear();
   });
 
   afterEach(cleanup);
@@ -89,6 +95,13 @@ describe("AreaMap", () => {
       [-46.7, -23.6, -46.5, -23.4],
       expect.objectContaining({ padding: 48, maxZoom: 18 }),
     );
+  });
+
+  it("configura a URL do worker antes de criar o mapa", () => {
+    render(<AreaMap area={polygonArea()} />);
+
+    expect(setWorkerUrlMock).toHaveBeenCalledWith("/maplibre-gl-worker.mjs");
+    expect(mapInstances).toHaveLength(1);
   });
 
   it("mostra fallback quando a geometry é inválida", () => {

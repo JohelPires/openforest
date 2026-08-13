@@ -18,6 +18,7 @@
 - Comandos (rodar em `frontend/`): testes `npm test -- <arquivo>`; typecheck `npm run typecheck`; lint `npm run lint`.
 - Commit a cada task, no estilo do repo (`feat:`, `fix:`, `docs:`, `chore:`).
 - Especificação de referência: `docs/superpowers/specs/2026-08-13-monitoring-detail-dialog-design.md`.
+- Nota pós-Task-1 (plan defect corrigido): o jsdom 29 (environment dos testes) não expõe `Blob.prototype.stream()`, então `new Response(blob)` falha. Sanção para `frontend/tests/setup.ts` já conter um shim guardado que injeta `Blob.prototype.stream` de `node:buffer` quando ausente — necessário para o teste de blob da Task 1 rodar; tasks seguintes devem assumir que ele existe e não recriá-lo.
 
 ---
 

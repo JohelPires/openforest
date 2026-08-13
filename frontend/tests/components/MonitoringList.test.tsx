@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MonitoringList } from "@/components/features/monitoring-list";
 import type { MonitoringRead } from "@/lib/api";
 
@@ -47,5 +48,21 @@ describe("MonitoringList", () => {
   it("não renderiza nada quando a lista está vazia", () => {
     const { container } = render(<MonitoringList items={[]} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("sem onSelect não renderiza botões", () => {
+    render(<MonitoringList items={items} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("chama onSelect ao clicar em um monitoramento", async () => {
+    const onSelect = vi.fn();
+    render(<MonitoringList items={items} onSelect={onSelect} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /1 de junho de 2024/ }));
+
+    expect(onSelect).toHaveBeenCalledWith(items[0]);
+    expect(screen.getByRole("button", { name: /Ver detalhes/ })).toBeInTheDocument();
   });
 });

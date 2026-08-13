@@ -1,4 +1,5 @@
 import type { MonitoringRead } from "@/lib/api";
+import { ChevronRight } from "lucide-react";
 import { PhotoThumb } from "@/components/features/photo-thumb";
 
 const MONTHS = [
@@ -53,9 +54,10 @@ function mockPhotos(item: MonitoringListItem): MonitoringPhoto[] {
 
 interface MonitoringListProps {
   items: MonitoringListItem[];
+  onSelect?: (item: MonitoringListItem) => void;
 }
 
-export function MonitoringList({ items }: MonitoringListProps) {
+export function MonitoringList({ items, onSelect }: MonitoringListProps) {
   if (items.length === 0) return null;
 
   return (
@@ -66,11 +68,8 @@ export function MonitoringList({ items }: MonitoringListProps) {
             ? monitoring.photos
             : mockPhotos(monitoring);
 
-        return (
-          <li
-            key={monitoring.id}
-            className="grid gap-3 sm:grid-cols-[auto_1fr] sm:gap-5"
-          >
+        const inner = (
+          <>
             <div className="flex gap-2 sm:flex-col">
               {photos.length > 0 ? (
                 photos.slice(0, 2).map((photo) => (
@@ -87,7 +86,7 @@ export function MonitoringList({ items }: MonitoringListProps) {
                 </span>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <span className="font-mono text-xs font-medium uppercase tracking-[0.12em] text-gold">
                   {fullDate(monitoring.visit_date)}
@@ -123,7 +122,40 @@ export function MonitoringList({ items }: MonitoringListProps) {
                   </span>
                 ))}
               </div>
+              {onSelect ? (
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-moss transition-colors group-hover:text-forest">
+                  Ver detalhes
+                  <ChevronRight
+                    className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </span>
+              ) : null}
             </div>
+          </>
+        );
+
+        if (!onSelect) {
+          return (
+            <li
+              key={monitoring.id}
+              className="grid gap-3 sm:grid-cols-[auto_1fr] sm:gap-5"
+            >
+              {inner}
+            </li>
+          );
+        }
+
+        return (
+          <li key={monitoring.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(monitoring)}
+              aria-haspopup="dialog"
+              className="group grid w-full gap-3 rounded-2xl border border-transparent p-1 text-left transition-colors hover:border-forest/10 hover:bg-forest/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-forest/50 focus-visible:ring-offset-2 focus-visible:ring-offset-mist sm:grid-cols-[auto_1fr] sm:gap-5"
+            >
+              {inner}
+            </button>
           </li>
         );
       })}

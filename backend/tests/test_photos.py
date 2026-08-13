@@ -273,24 +273,20 @@ def test_get_photo_not_found(client: TestClient, auth_headers: dict) -> None:
     assert response.status_code == 404
 
 
-def test_download_photo(
+def test_download_route_removed(
     client: TestClient,
     monitoring: Monitoring,
     auth_headers: dict,
     manager_membership: UserOrganization,
 ) -> None:
-    upload_resp = client.post(
+    upload = client.post(
         f"/api/v1/monitorings/{monitoring.id}/photos",
         files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
         headers=auth_headers,
     )
-    photo_id = upload_resp.json()["id"]
-
+    photo_id = upload.json()["id"]
     response = client.get(f"/api/v1/photos/{photo_id}/download", headers=auth_headers)
-    assert response.status_code == 200
-    assert response.content == b"fake-image-bytes"
-    assert response.headers["content-type"].startswith("image/jpeg")
-    assert 'filename="foto.jpg"' in response.headers["content-disposition"]
+    assert response.status_code == 404
 
 
 def test_delete_photo(

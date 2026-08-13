@@ -59,13 +59,6 @@ def delete_file(file_path: str) -> None:
     _local_root().joinpath(file_path).unlink(missing_ok=True)
 
 
-def read_file(file_path: str) -> bytes:
-    if settings.storage_backend == "s3":
-        response = _s3_client().get_object(Bucket=settings.s3_bucket, Key=file_path)
-        return cast(bytes, response["Body"].read())
-    return _local_root().joinpath(file_path).read_bytes()
-
-
 def get_presigned_url(file_path: str, expires_in: int | None = None) -> str:
     if settings.storage_backend != "s3":
         raise RuntimeError("presigned URLs requerem storage_backend='s3'")

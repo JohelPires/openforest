@@ -1,14 +1,13 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, UploadFile
-from fastapi.responses import Response
 
 from openforest.api.config import settings
 from openforest.api.dependencies.auth import CurrentOrgDep, CurrentUserDep
 from openforest.api.dependencies.pagination import PaginationDep
 from openforest.api.dependencies.permissions import check_area_role
 from openforest.api.infrastructure.database import SessionDep
-from openforest.api.infrastructure.storage import delete_file, read_file, save_upload
+from openforest.api.infrastructure.storage import delete_file, save_upload
 from openforest.api.models.monitoring import Monitoring
 from openforest.api.models.photo import Photo
 from openforest.api.models.user_organization import UserOrganizationRole
@@ -118,31 +117,6 @@ def get_photo_route(
             detail=[{"msg": "Foto não encontrada", "type": "not_found"}],
         )
     return photo
-
-
-@router.get("/photos/{photo_id}/download")
-def download_photo_route(
-    session: SessionDep,
-    current_user: CurrentUserDep,
-    current_org: CurrentOrgDep,
-    photo_id: UUID,
-) -> Response:
-    organization_id = current_org.organization_id if current_org else None
-    photo = get_photo(session, photo_id, organization_id)
-    if not photo:
-        raise HTTPException(
-            status_code=404,
-            detail=[{"msg": "Foto não encontrada", "type": "not_found"}],
-        )
-    content = read_file(photo.file_path)
-    filename = (
-        (photo.original_filename or "foto").replace('"', "").replace("\r", "").replace("\n", "")
-    )
-    return Response(
-        content=content,
-        media_type=photo.mime_type or "application/octet-stream",
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
-    )
 
 
 @router.delete("/photos/{photo_id}")

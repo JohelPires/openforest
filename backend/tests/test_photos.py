@@ -64,6 +64,14 @@ def client(session):
     app.dependency_overrides.clear()
 
 
+class FakeS3Client:
+    def generate_presigned_url(self, method: str, Params: dict, ExpiresIn: int) -> str:
+        return f"https://minio.example/{Params['Key']}?expires={ExpiresIn}"
+
+    def put_object(self, **kwargs: object) -> None:
+        return None
+
+
 @pytest.fixture(autouse=True)
 def local_storage(tmp_path):
     original_backend = settings.storage_backend
@@ -73,6 +81,15 @@ def local_storage(tmp_path):
     yield
     settings.storage_backend = original_backend
     settings.storage_path = original_path
+
+
+@pytest.fixture
+def s3_storage(monkeypatch):
+    original = settings.storage_backend
+    settings.storage_backend = "s3"
+    monkeypatch.setattr("openforest.api.infrastructure.storage._s3_client", lambda: FakeS3Client())
+    yield
+    settings.storage_backend = original
 
 
 @pytest.fixture
@@ -514,6 +531,29 @@ def test_list_photos(
     for item in data["items"]:
         assert item["monitoring_id"] == str(monitoring.id)
         assert item["url"] == f"/api/v1/photos/{item['id']}/download"
+
+
+def test_list_photos_returns_presigned_url_in_s3(
+    client: TestClient,
+    monitoring: Monitoring,
+    auth_headers: dict,
+    manager_membership: UserOrganization,
+    s3_storage: None,
+) -> None:
+    upload = client.post(
+        f"/api/v1/monitorings/{monitoring.id}/photos",
+        files={"file": ("foto.jpg", b"fake-image-bytes", "image/jpeg")},
+        headers=auth_headers,
+    )
+    assert upload.status_code == 200
+    photo_id = upload.json()["id"]
+
+    response = client.get(f"/api/v1/monitorings/{monitoring.id}/photos", headers=auth_headers)
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["url"].startswith("https://minio.example/photos/")
+    assert item["url"].endswith(f"?expires={settings.presigned_url_expire_seconds}")
+    assert photo_id == item["id"]
 
 
 def test_list_photos_ordered_and_paginated(

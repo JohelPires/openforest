@@ -108,7 +108,7 @@ describe("AreaDetailPage", () => {
     ).toHaveAttribute("href", "/painel/projetos/proj-1");
   });
 
-  it("renderiza a pré-visualização da visão de satélite", async () => {
+  it("renderiza a visão de satélite com fallback sem coordenadas", async () => {
     apiFetchMock.mockResolvedValue(project);
     getAreaMock.mockResolvedValue(area);
     listAreaMonitoringsMock.mockResolvedValue({
@@ -123,10 +123,7 @@ describe("AreaDetailPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Visão de satélite" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Pré-visualização")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Mata Atlântica · 42 ha/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Mata Atlântica · 42 ha/)).toBeInTheDocument();
     expect(screen.getByText("coordenadas em breve")).toBeInTheDocument();
   });
 

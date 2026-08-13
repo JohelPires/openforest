@@ -17,7 +17,7 @@ import { apiFetch, getArea, listAreaMonitorings, type ProjectRead } from "@/lib/
 import { STATUS_BADGE, STATUS_LABEL } from "@/lib/status";
 import { useBreadcrumb } from "@/components/features/painel-breadcrumb";
 import { MonitoringList } from "@/components/features/monitoring-list";
-import { SatelliteView } from "@/components/features/satellite-view";
+import { AreaMap } from "@/components/features/area-map";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
@@ -175,7 +175,7 @@ export default function AreaDetailPage() {
         </span>
       </header>
 
-      <SatelliteView area={area} />
+      <AreaMap area={area} />
 
       {area.goal ? (
         <section className="max-w-6xl rounded-2xl border border-forest/10 bg-cream p-6 shadow-sm shadow-forest/5 sm:p-8">

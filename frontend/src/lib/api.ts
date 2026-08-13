@@ -3,6 +3,8 @@ import type { Token } from '@/lib/auth'
 
 export type { Token }
 
+import type { PolygonGeometry } from "@/lib/geo";
+
 const BASE_PATH = '/api/v1'
 
 export class ApiError extends Error {
@@ -240,7 +242,7 @@ export interface AreaRead {
   goal?: string | null;
   size_hectares?: number | null;
   biome?: string | null;
-  coordinates?: Record<string, unknown> | null;
+  coordinates?: PolygonGeometry | null;
   restoration_status: RestorationStatus;
   recent_monitorings?: MonitoringRead[];
   created_at: string;
@@ -252,7 +254,7 @@ export interface AreaCreate {
   goal?: string | null;
   size_hectares?: number | null;
   biome?: string | null;
-  coordinates?: Record<string, unknown> | null;
+  coordinates?: PolygonGeometry | null;
   restoration_status?: RestorationStatus;
 }
 

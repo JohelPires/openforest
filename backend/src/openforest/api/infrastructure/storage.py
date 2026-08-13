@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -16,6 +17,7 @@ def _local_root() -> Path:
     return Path(settings.storage_path)
 
 
+@lru_cache
 def _s3_client() -> Any:
     import boto3
 
@@ -67,7 +69,9 @@ def get_presigned_url(file_path: str, expires_in: int | None = None) -> str:
         _s3_client().generate_presigned_url(
             "get_object",
             Params={"Bucket": settings.s3_bucket, "Key": file_path},
-            ExpiresIn=expires_in or settings.presigned_url_expire_seconds,
+            ExpiresIn=(
+                expires_in if expires_in is not None else settings.presigned_url_expire_seconds
+            ),
         ),
     )
 

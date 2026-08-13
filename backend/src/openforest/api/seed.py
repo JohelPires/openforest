@@ -1184,10 +1184,6 @@ def main() -> None:
     with Session(engine) as session:
         if args.reset:
             reset(session)
-            if settings.storage_backend == "s3":
-                delete_photo_prefix("photos/")
-            else:
-                _clear_local_photos()
         report = seed(
             session,
             create_photos=not args.no_photos,

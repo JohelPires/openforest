@@ -65,7 +65,7 @@ def client(session):
 
 
 class FakeS3Client:
-    def generate_presigned_url(self, method: str, Params: dict, ExpiresIn: int) -> str:
+    def generate_presigned_url(self, method: str, Params: dict, ExpiresIn: int) -> str:  # noqa: N803
         return f"https://minio.example/{Params['Key']}?expires={ExpiresIn}"
 
     def put_object(self, **kwargs: object) -> None:
@@ -543,6 +543,7 @@ def test_list_photos_returns_presigned_url_in_s3(
     )
     assert upload.status_code == 200
     photo_id = upload.json()["id"]
+    assert upload.json()["url"].startswith("https://minio.example/")
 
     response = client.get(f"/api/v1/monitorings/{monitoring.id}/photos", headers=auth_headers)
     assert response.status_code == 200

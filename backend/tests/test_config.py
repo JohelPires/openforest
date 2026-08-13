@@ -6,6 +6,10 @@ def test_presigned_url_expire_default() -> None:
 
 
 def test_minio_env_aliases(monkeypatch) -> None:
+    monkeypatch.delenv("S3_ENDPOINT_URL", raising=False)
+    monkeypatch.delenv("S3_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("S3_SECRET_KEY", raising=False)
+    monkeypatch.delenv("S3_BUCKET", raising=False)
     monkeypatch.setenv("MINIO_ENDPOINT", "http://localhost:9000")
     monkeypatch.setenv("MINIO_ACCESS_KEY", "access")
     monkeypatch.setenv("MINIO_SECRET_KEY", "secret")

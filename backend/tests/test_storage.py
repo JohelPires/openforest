@@ -11,19 +11,21 @@ class FakeS3Client:
         self.deleted: dict[str, list[str]] = {"keys": []}
         self.delete_objects_calls: list[int] = []
         self.put_object_calls: list[dict] = []
+        self.list_objects_v2_calls: list[dict] = []
 
     def generate_presigned_url(
-        self, ClientMethod: str, Params: dict, ExpiresIn: int = 3600, HttpMethod: str | None = None
+        self, ClientMethod: str, Params: dict, ExpiresIn: int = 3600, HttpMethod: str | None = None  # noqa: N803
     ) -> str:
         self.generate_presigned_url_calls.append((ClientMethod, Params, ExpiresIn))
         return f"https://minio.example/{Params['Key']}?x-id=GetObject&expires={ExpiresIn}"
 
     def list_objects_v2(self, **kwargs: object) -> dict:
+        self.list_objects_v2_calls.append(kwargs)
         if self._pages:
             return self._pages.pop(0)
         return {"Contents": [], "IsTruncated": False}
 
-    def delete_objects(self, *, Bucket: object = None, Delete: object = None) -> None:
+    def delete_objects(self, *, Bucket: object = None, Delete: object = None) -> None:  # noqa: N803
         objects = Delete["Objects"]
         self.delete_objects_calls.append(len(objects))
         for obj in objects:
@@ -58,7 +60,7 @@ def test_get_presigned_url_custom_expiry(fake_s3: FakeS3Client) -> None:
 
 
 def test_get_presigned_url_requires_s3(monkeypatch) -> None:
-    settings.storage_backend = "local"
+    monkeypatch.setattr(settings, "storage_backend", "local")
     with pytest.raises(RuntimeError):
         get_presigned_url("photos/abc/1.jpg")
 
@@ -76,17 +78,26 @@ def test_delete_photo_prefix(fake_s3: FakeS3Client) -> None:
 
 def test_delete_photo_prefix_paginates(fake_s3: FakeS3Client) -> None:
     fake_s3._pages = [
-        {"Contents": [{"Key": "photos/a/1.jpg"}], "IsTruncated": True, "NextContinuationToken": "tok"},
+        {
+            "Contents": [{"Key": "photos/a/1.jpg"}],
+            "IsTruncated": True,
+            "NextContinuationToken": "tok",
+        },
         {"Contents": [{"Key": "photos/b/2.jpg"}], "IsTruncated": False},
     ]
     delete_photo_prefix("photos/")
     assert sorted(fake_s3.deleted["keys"]) == ["photos/a/1.jpg", "photos/b/2.jpg"]
+    assert fake_s3.list_objects_v2_calls[1]["ContinuationToken"] == "tok"
 
 
 def test_delete_photo_prefix_batches_over_1000_keys(fake_s3: FakeS3Client) -> None:
     keys = [f"photos/{i}.jpg" for i in range(1001)]
     fake_s3._pages = [
-        {"Contents": [{"Key": key} for key in keys[:1000]], "IsTruncated": True, "NextContinuationToken": "tok"},
+        {
+            "Contents": [{"Key": key} for key in keys[:1000]],
+            "IsTruncated": True,
+            "NextContinuationToken": "tok",
+        },
         {"Contents": [{"Key": keys[1000]}], "IsTruncated": False},
     ]
     delete_photo_prefix("photos/")

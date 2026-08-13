@@ -56,14 +56,14 @@ class FakeS3Client:
         self.objects: dict[str, object] = {}
         self.deleted: dict[str, list[str]] = {"keys": []}
 
-    def put_object(self, Bucket: str, Key: str, Body: bytes, **kwargs: object) -> None:
+    def put_object(self, Bucket: str, Key: str, Body: bytes, **kwargs: object) -> None:  # noqa: N803
         self.objects[Key] = Body
 
-    def list_objects_v2(self, Bucket: str, Prefix: str, **kwargs: object) -> dict:
+    def list_objects_v2(self, Bucket: str, Prefix: str, **kwargs: object) -> dict:  # noqa: N803
         contents = [{"Key": key} for key in self.objects if key.startswith(Prefix)]
         return {"Contents": contents, "IsTruncated": False}
 
-    def delete_objects(self, Bucket: str, Delete: dict, **kwargs: object) -> None:
+    def delete_objects(self, Bucket: str, Delete: dict, **kwargs: object) -> None:  # noqa: N803
         for entry in Delete["Objects"]:
             key = entry["Key"]
             self.deleted["keys"].append(key)
@@ -216,7 +216,7 @@ def test_seed_writes_photos_via_s3(session, s3_storage) -> None:
 
 
 def test_seed_reset_cleans_bucket(session, s3_storage) -> None:
-    report = seed(session, create_photos=True)
+    seed(session, create_photos=True)
     session.commit()
     reset(session)
     assert fake_s3_client.deleted["keys"]

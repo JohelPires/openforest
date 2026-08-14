@@ -60,7 +60,9 @@ def list_areas(
     limit: int,
     organization_id: UUID | None = None,
 ) -> tuple[list[AreaRead], int]:
-    count_stmt = select(func.count()).select_from(Area).join(Project)
+    count_stmt = (
+        select(func.count()).select_from(Area).join(Project).where(Area.project_id == project_id)
+    )
     stmt = (
         select(Area)
         .join(Project)

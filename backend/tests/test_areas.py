@@ -226,6 +226,44 @@ def test_list_areas_pagination(
     assert page_two["total"] == 3
 
 
+def test_list_areas_total_scoped_to_project(
+    client: TestClient,
+    session: Session,
+    project: Project,
+    organization: Organization,
+    auth_headers: dict,
+    manager_membership: UserOrganization,
+) -> None:
+    other_project = Project(name="Projeto 2", organization_id=organization.id)
+    session.add(other_project)
+    session.commit()
+
+    for name in ["Área A", "Área B", "Área C"]:
+        client.post(
+            f"/api/v1/projects/{project.id}/areas",
+            json={"name": name},
+            headers=auth_headers,
+        )
+    for name in ["Área D", "Área E"]:
+        client.post(
+            f"/api/v1/projects/{other_project.id}/areas",
+            json={"name": name},
+            headers=auth_headers,
+        )
+
+    page_one = client.get(
+        f"/api/v1/projects/{project.id}/areas?offset=0&limit=2", headers=auth_headers
+    ).json()
+    assert len(page_one["items"]) == 2
+    assert page_one["total"] == 3
+
+    beyond_last = client.get(
+        f"/api/v1/projects/{project.id}/areas?offset=3&limit=2", headers=auth_headers
+    ).json()
+    assert beyond_last["items"] == []
+    assert beyond_last["total"] == 3
+
+
 def test_list_areas_invalid_pagination(
     client: TestClient, project: Project, auth_headers: dict
 ) -> None:

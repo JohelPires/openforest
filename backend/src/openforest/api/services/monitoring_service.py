@@ -53,7 +53,13 @@ def list_monitorings(
     limit: int,
     organization_id: UUID | None = None,
 ) -> tuple[list[Monitoring], int]:
-    count_stmt = select(func.count()).select_from(Monitoring).join(Area).join(Project)
+    count_stmt = (
+        select(func.count())
+        .select_from(Monitoring)
+        .join(Area)
+        .join(Project)
+        .where(Monitoring.area_id == area_id)
+    )
     stmt = (
         select(Monitoring)
         .join(Area)
